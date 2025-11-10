@@ -1,0 +1,250 @@
+<template>
+	<cl-page>
+
+		<!-- #ifdef APP -->
+		<scroll-view class="container" style="flex: 1">
+		<!-- #endif -->
+		<view class="p-3">
+			<!-- 任务名称 -->
+			<view class="mb-4">
+				<cl-text :pt="{ className: '!text-base font-bold mb-3' }">任务名称 *</cl-text>
+				<cl-input
+					v-model="form.title"
+					autofocus
+					:placeholder="'请输入1-50个字符的任务名称'"
+					:border="false"
+					:pt="{
+						className: parseClass([
+							'!h-[90rpx] !rounded-xl !px-4',
+							[isDark, '!bg-surface-70', '!bg-white']
+						])
+					}"
+				>
+					<template #append>
+						<cl-text color="info" :pt="{ className: 'text-sm ml-2' }">{{ form.title.length }}/50</cl-text>
+					</template>
+				</cl-input>
+			</view>
+
+			<!-- 任务描述 -->
+			<view class="mb-4">
+				<cl-text :pt="{ className: '!text-base font-bold mb-3' }">任务描述 *</cl-text>
+				<cl-textarea
+					v-model="form.description"
+					:placeholder="'请输入任务的具体描述，帮助您更好地理解任务目标'"
+					:border="false"
+					:rows="4"
+					:pt="{
+						className: parseClass([
+							'!rounded-xl !px-4 !py-3',
+							[isDark, '!bg-surface-70', '!bg-white']
+						])
+					}"
+				></cl-textarea>
+			</view>
+
+			<!-- 任务类型 -->
+			<view class="mb-4">
+				<cl-text :pt="{ className: '!text-base font-bold mb-3' }">任务类型 *</cl-text>
+				<view class="flex flex-row justify-between gap-3">
+					<cl-radio 
+						v-model="form.habit_type" 
+						:value="1"
+						:pt="{ className: '!p-4 !rounded-xl !border-2 !border-surface-200 dark:!border-surface-600 !bg-white dark:!bg-surface-800 flex-1' }"
+					>
+						<view class="flex flex-row items-center px-1">
+							<view class="flex-1">
+								<cl-text color="surface-400" :pt="{ className: '!text-sm font-medium' }">戒掉坏习惯</cl-text>
+							</view>
+						</view>
+					</cl-radio>
+					<cl-radio 
+						v-model="form.habit_type" 
+						:value="2"
+						:pt="{ className: '!p-4 !rounded-xl !border-2 !border-surface-200 dark:!border-surface-600 !bg-white dark:!bg-surface-800 flex-1' }"
+					>
+						<view class="flex flex-row items-center px-1">
+							<view class="flex-1">
+								<cl-text color="surface-400" :pt="{ className: '!text-sm font-medium' }">养成好习惯</cl-text>
+							</view>
+						</view>
+					</cl-radio>
+				</view>
+			</view>
+
+			<!-- 打卡频次 -->
+			<view class="mb-4">
+				<cl-text :pt="{ className: '!text-base font-bold mb-3' }">打卡频次 *</cl-text>
+				<view class="flex flex-row justify-between gap-3">
+					<cl-radio 
+						v-model="form.frequency" 
+						:value="1"
+						:pt="{ className: '!p-4 !rounded-xl !border-2 !border-surface-200 dark:!border-surface-600 !bg-white dark:!bg-surface-800 flex-1' }"
+					>
+						<view class="w-full flex flex-row items-center px-1">
+							<view class="flex-1">
+								<cl-text color="surface-400" :pt="{ className: '!text-sm font-medium' }">每日一次</cl-text>
+							</view>
+						</view>
+					</cl-radio>
+					<cl-radio 
+						v-model="form.frequency" 
+						:value="2"
+						:pt="{ className: '!p-4 !rounded-xl !border-2 !border-surface-200 dark:!border-surface-600 !bg-white dark:!bg-surface-800 flex-1' }"
+					>
+						<view class="w-full flex flex-row items-center px-1">
+							<view class="flex-1">
+								<cl-text color="surface-400" :pt="{ className: '!text-sm font-medium' }">每周一次</cl-text>
+							</view>
+						</view>
+					</cl-radio>
+				</view>
+			</view>
+
+			<!-- 总次数 -->
+			<view class="mb-4">
+				<cl-text :pt="{ className: '!text-base font-bold mb-3' }">总次数 *</cl-text>
+				<cl-input-number
+					v-model="form.total_times"
+					:min="1"
+					:max="1000"
+					:placeholder="'请输入总次数'"
+					:border="false"
+					:pt="{
+						className: parseClass([
+							'!rounded-xl !p-4',
+							[isDark, '!bg-surface-70', '!bg-white']
+						])
+					}"
+				></cl-input-number>
+				<cl-text color="info" :pt="{ className: '!text-xs mt-1' }">完成{{ form.total_times }}次后任务完成</cl-text>
+			</view>
+
+			<!-- 创建说明 -->
+			<view class="bg-surface-50 dark:!bg-surface-700 rounded-xl p-4 mb-4">
+				<cl-text :pt="{ className: '!text-sm text-surface-500' }">
+					• 任务创建后不可修改，请仔细填写<br/>
+					• 戒习惯用蓝色标识，行习惯用绿色标识<br/>
+					• 建议设置合理的总次数，避免过高或过低<br/>
+					• 坚持完成所有次数即可达成目标
+				</cl-text>
+			</view>
+		</view>
+		<!-- #ifdef APP -->
+		</scroll-view>
+		<!-- #endif -->
+
+		<!-- 固定底部提交按钮 -->
+		<cl-footer>
+			<cl-button 
+				type="primary" 
+				size="large" 
+				:loading="loading" 
+				:disabled="!canSubmit"
+				@tap="submit"
+			>
+				创建任务
+			</cl-button>
+		</cl-footer>
+	</cl-page>
+</template>
+
+<script lang="ts" setup>
+import { router, isDark, parseClass } from "@/cool";
+import { ref, reactive, computed } from "vue";
+import { useUi } from "@/uni_modules/cool-ui";
+import { task } from "@/cool/store/task";
+
+const ui = useUi();
+
+// 数据
+const loading = ref(false);
+
+// 表单数据
+type TaskForm = {
+	title: string;
+	description: string;
+	habit_type: number | null;
+	frequency: number | null;
+	total_times: number;
+};
+
+const form = reactive<TaskForm>({
+	title: '',
+	description: '',
+	habit_type: null,
+	frequency: null,
+	total_times: 30
+});
+
+// 计算属性 - 是否可以提交
+const canSubmit = computed(() => {
+	return form.title.trim().length > 0 && 
+		   form.title.trim().length <= 50 &&
+		   form.description.trim().length > 0 &&
+		   form.habit_type !== null &&
+		   form.frequency !== null &&
+		   form.total_times >= 1 &&
+		   form.total_times <= 1000;
+});
+
+// 方法
+async function submit() {
+	try {
+		// 验证表单
+		if (form.title == null || form.title.trim() === '') {
+			ui.showToast({ message: '请输入任务名称' });
+			return;
+		}
+		
+		if (form.title.trim().length > 50) {
+			ui.showToast({ message: '任务名称不能超过50个字符' });
+			return;
+		}
+		
+		if (form.description == null || form.description.trim() === '') {
+			ui.showToast({ message: '请输入任务描述' });
+			return;
+		}
+		
+		if (form.habit_type === null) {
+			ui.showToast({ message: '请选择任务类型' });
+			return;
+		}
+		
+		if (form.frequency === null) {
+			ui.showToast({ message: '请选择打卡频次' });
+			return;
+		}
+		
+		if (form.total_times == null || form.total_times < 1 || form.total_times > 1000) {
+			ui.showToast({ message: '请输入有效的总次数(1-1000)' });
+			return;
+		}
+		
+		loading.value = true;
+		
+		await task.createTask({
+			title: form.title.trim(),
+			description: form.description.trim(),
+			habit_type: form.habit_type,
+			frequency: form.frequency,
+			total_times: form.total_times
+		});
+		
+		ui.showToast({ message: '创建成功' });
+		router.back();
+	} catch (error) {
+		console.error('创建失败:', error);
+		ui.showToast({ message: '创建失败，请重试' });
+	} finally {
+		loading.value = false;
+	}
+}
+</script>
+
+<style lang="scss" scoped>
+.container {
+	height: 100%;
+}
+</style>

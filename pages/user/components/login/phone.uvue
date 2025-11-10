@@ -1,0 +1,249 @@
+<template>
+	<view class="flex flex-col mb-5">
+		<cl-text :pt="{ className: 'text-lg font-bold' }">{{ t("账号登录") }}</cl-text>
+		<cl-text :pt="{ className: 'text-sm mt-2' }" color="info">{{
+			loginType == 'password' ? t("请输入手机号和密码进行登录") : t("请输入手机号和验证码进行登录")
+		}}</cl-text>
+	</view>
+
+	<view class="flex flex-col">
+		<view class="mb-3 flex flex-row">
+			<cl-input
+				v-model="form.phone"
+				prefix-icon="device-fill"
+				:placeholder="t('请输入手机号')"
+				:border="false"
+				:pt="{
+					className: parseClass([
+						'!h-[90rpx] flex-1 !rounded-xl !px-4',
+						[isDark, '!bg-surface-70', '!bg-white']
+					]),
+					prefixIcon: {
+						className: 'mr-1'
+					}
+				}"
+			></cl-input>
+		</view>
+
+		<!-- 密码登录 -->
+		<view v-if="loginType == 'password'" class="mb-5 flex flex-row">
+			<cl-input
+				:value="form.password != null ? form.password : ''"
+				@input="handlePasswordInput"
+				:type="'password' as any"
+				prefix-icon="lock-fill"
+				:placeholder="t('请输入密码')"
+				:border="false"
+				:pt="{
+					className: parseClass([
+						'!h-[90rpx] flex-1 !rounded-xl !px-4',
+						[isDark, '!bg-surface-70', '!bg-white']
+					]),
+					prefixIcon: {
+						className: 'mr-1'
+					}
+				}"
+			></cl-input>
+		</view>
+
+		<!-- 验证码登录 -->
+		<view v-else class="mb-5 flex flex-row">
+			<cl-input
+				:value="form.code != null ? form.code : ''"
+				@input="handleCodeInput"
+				prefix-icon="shield-check-fill"
+				:placeholder="t('请输入验证码')"
+				:border="false"
+				:pt="{
+					className: parseClass([
+						'!h-[90rpx] flex-1 !rounded-xl !px-4 mr-3',
+						[isDark, '!bg-surface-70', '!bg-white']
+					]),
+					prefixIcon: {
+						className: 'mr-1'
+					}
+				}"
+			></cl-input>
+			<sms-btn 
+				:phone="form.phone" 
+				type="login"
+				@success="onSmsSuccess"
+				:ref="refs.set('smsBtn')"
+			>
+				<template #default="{ disabled, countdown, btnText }">
+					<cl-button 
+						:disabled="disabled"
+						:pt="{ className: '!h-[90rpx] !rounded-xl !px-4' }"
+						text
+						@tap="openSmsBtn"
+					>
+						{{ btnText }}
+					</cl-button>
+				</template>
+			</sms-btn>
+		</view>
+
+		<cl-button
+			:pt="{
+				className: '!h-[90rpx] !rounded-xl'
+			}"
+			:loading="loading"
+			:disabled="disabled"
+			@tap="toLogin"
+		>
+			{{ t("登录") }}
+		</cl-button>
+
+		<!-- 登录选项 -->
+		<view class="mt-4 flex flex-row items-center justify-between">
+			<cl-text 
+				:pt="{ className: 'text-sm' }"
+				@tap="toRegister"
+			>
+				{{ t("注册账号") }}
+			</cl-text>
+			<cl-text 
+				:pt="{ className: 'text-sm' }"
+				@tap="toResetPassword"
+			>
+				{{ t("忘记密码？") }}
+			</cl-text>
+		</view>
+	</view>
+</template>
+
+<script setup lang="ts">
+import { t } from "@/locale";
+import { computed, inject, ref, type PropType } from "vue";
+import type { LoginForm } from "@/types";
+import SmsBtn from "@/components/sms-btn.uvue";
+import { isDark, parseClass, router, useRefs, type Response } from "@/cool";
+import { useUi } from "@/uni_modules/cool-ui";
+import { AuthService } from "@/cool/service/auth";
+
+const props = defineProps({
+	form: {
+		type: Object as PropType<LoginForm>,
+		default: () => ({})
+	},
+	loginType: {
+		type: String as PropType<'password' | 'sms'>,
+		default: 'password'
+	}
+});
+
+const emit = defineEmits(["success"]);
+
+const ui = useUi();
+const refs = useRefs();
+
+
+// 是否加载中
+const loading = ref(false);
+
+// 是否禁用
+const disabled = computed(() => {
+	if (props.loginType == 'password') {
+		return props.form.phone == "" || props.form.password == "";
+	} else {
+		return props.form.phone == "" || props.form.code == "";
+	}
+});
+
+// 短信发送成功
+function onSmsSuccess() {
+	ui.showToast({
+		message: t("验证码已发送")
+	});
+}
+
+// 打开短信验证码组件
+function openSmsBtn() {
+	refs.open('smsBtn');
+}
+
+// 处理密码输入
+function handlePasswordInput(e: UniInputEvent) {
+	const value = e.detail.value as string;
+	props.form.password = value;
+}
+
+// 处理验证码输入
+function handleCodeInput(e: UniInputEvent) {
+	const value = e.detail.value as string;
+	props.form.code = value;
+}
+
+// 登录
+async function toLogin() {
+
+	loading.value = true;
+
+	try {
+		// 构建登录数据，只包含当前登录类型需要的字段
+		const loginData: LoginForm = {
+			phone: props.form.phone,
+			login_type: props.loginType
+		};
+		
+		// 根据登录类型添加对应字段
+		if (props.loginType == 'password') {
+			if (props.form.password != null && props.form.password != "") {
+				loginData.password = props.form.password;
+			}
+		} else {
+			if (props.form.code != null && props.form.code != "") {
+				loginData.code = props.form.code;
+			}
+		}
+		
+		const res: any = await AuthService.login(loginData);
+		emit("success", res);
+	} catch (err: any) {
+		
+		let errMsg: string | null | undefined = null;
+		
+		// 安全地访问错误对象的 message 属性
+		if (err != null && typeof err === "object") {
+			try {
+				const errObj = err as UTSJSONObject;
+				// 使用字符串索引访问属性
+				const messageValue = errObj["message"] as string | null | undefined;
+				const errMsgValue = errObj["errMsg"] as string | null | undefined;
+				
+				if (messageValue != null && typeof messageValue === "string" && messageValue != "") {
+					errMsg = messageValue;
+					console.log('从 message 属性获取错误信息:', errMsg);
+				} else if (errMsgValue != null && typeof errMsgValue === "string" && errMsgValue != "") {
+					errMsg = errMsgValue;
+					console.log('从 errMsg 属性获取错误信息:', errMsg);
+				}
+			} catch (e) {
+				console.error('访问错误对象属性失败:', e);
+			}
+		}
+		
+		const errorMessage: string = (errMsg != null && errMsg != "" ? errMsg : t("登录失败")) as string;
+		console.log('最终错误消息:', errorMessage);
+		ui.showToast({
+			message: errorMessage
+		});
+	}
+
+	loading.value = false;
+}
+
+// 跳转到注册页
+function toRegister() {
+	router.push({
+		path: "/pages/user/register"
+	});
+}
+
+// 跳转到重置密码页
+function toResetPassword() {
+	router.push({
+		path: "/pages/user/reset-password"
+	});
+}
+</script>

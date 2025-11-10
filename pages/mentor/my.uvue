@@ -1,0 +1,351 @@
+<template>
+	<cl-page>
+		<!-- #ifdef APP -->
+		<scroll-view class="container" style="flex: 1">
+		<!-- #endif -->
+		<view class="p-3">
+			<!-- 我的导师列表 -->
+			<view class="mb-4">
+				<view v-if="myMentors.length === 0" class="bg-surface-100 dark:!bg-surface-800 rounded-xl p-6 text-center">
+					<cl-icon name="user-line" :size="48" color="surface-400"></cl-icon>
+					<cl-text color="surface-400" :pt="{ className: 'mt-2' }">还没有绑定导师</cl-text>
+					<cl-text color="surface-400" :pt="{ className: '!text-sm mt-1' }">去导师列表选择一个导师吧</cl-text>
+				</view>
+				
+				<view v-else>
+					<view v-for="mentor in myMentors" :key="mentor.id" 
+						class="bg-white dark:!bg-surface-800 rounded-xl p-4 mb-3" 
+						@tap="showMentorDetail(mentor)">
+						<view class="flex flex-row items-center">
+							<cl-avatar :src="mentor.mentor_avatar" :size="60" :pt="{ className: '!rounded-full' }"></cl-avatar>
+							<view class="ml-3 flex-1">
+								<cl-text :pt="{ className: '!text-lg font-bold' }">{{ mentor.name }}</cl-text>
+								<cl-text color="surface-400" :pt="{ className: '!text-sm mt-1' }">{{ mentor.level_name }}</cl-text>
+							</view>
+							<view class="flex flex-col items-end">
+								<cl-tag :type="getStatusType(mentor.status) as any" size="small">
+									{{ getStatusText(mentor.status) }}
+								</cl-tag>
+								<cl-text color="surface-400" :pt="{ className: '!text-xs mt-1' }">
+									{{ formatDate(mentor.bind_time) }}
+								</cl-text>
+							</view>
+						</view>
+					</view>
+				</view>
+			</view>
+		</view>
+		<!-- #ifdef APP -->
+		</scroll-view>
+		<!-- #endif -->
+
+		<!-- 导师详情弹窗 -->
+		<cl-popup v-model="showDetailModal" :pt="{ className: '!rounded-t-3xl' }">
+			<view class="w-full flex flex-col p-6">
+				<view class="text-center mb-6">
+					<cl-text :pt="{ className: '!text-xl font-bold' }">导师详情</cl-text>
+				</view>
+
+				<view v-if="selectedMentorValue != null" class="bg-white dark:!bg-surface-800 rounded-xl p-4 mb-6">
+					<!-- 导师基本信息 -->
+					<view class="flex flex-row items-start mb-4">
+						<cl-avatar :src="getSelectedMentorAvatar()" :size="80" :pt="{ className: '!rounded-full' }"></cl-avatar>
+						<view class="ml-3 flex-1">
+							<view class="flex flex-row items-center mb-2">
+								<cl-text :pt="{ className: '!text-lg font-bold' }">{{ getSelectedMentorName() }}</cl-text>
+								<cl-text color="primary" :pt="{ className: '!text-sm ml-2' }">{{ getSelectedMentorLevelName() }}</cl-text>
+							</view>
+							<view class="flex flex-row items-center gap-3 flex-wrap">
+								<view v-if="getSelectedMentorGender() != null" class="flex flex-row items-center">
+									<cl-icon name="user-line" :size="20" color="surface-400"></cl-icon>
+									<cl-text color="surface-400" :pt="{ className: '!text-xs ml-1' }">
+										{{ getSelectedMentorGender() === 1 ? '男' : getSelectedMentorGender() === 2 ? '女' : '未知' }}
+									</cl-text>
+								</view>
+								<view v-if="getSelectedMentorAge() != null" class="flex flex-row items-center">
+									<cl-icon name="calendar-line" :size="20" color="surface-400"></cl-icon>
+									<cl-text color="surface-400" :pt="{ className: '!text-xs ml-1' }">{{ getSelectedMentorAge() }}岁</cl-text>
+								</view>
+								<view v-if="getSelectedMentorCity() != ''" class="flex flex-row items-center">
+									<cl-icon name="map-pin-line" :size="20" color="surface-400"></cl-icon>
+									<cl-text color="surface-400" :pt="{ className: '!text-xs ml-1' }">{{ getSelectedMentorCity() }}</cl-text>
+								</view>
+								<view v-if="getSelectedMentorWorkplace() != ''" class="flex flex-row items-center">
+									<cl-icon name="briefcase-line" :size="20" color="surface-400"></cl-icon>
+									<cl-text color="surface-400" :pt="{ className: '!text-xs ml-1' }">{{ getSelectedMentorWorkplace() }}</cl-text>
+								</view>
+							</view>
+						</view>
+					</view>
+					
+					<!-- 导师数据统计 -->
+					<view class="flex flex-row items-center justify-between">
+						<view class="flex flex-row items-center">
+							<cl-icon name="star-line" :size="24" color="primary"></cl-icon>
+							<cl-text color="primary" :pt="{ className: '!text-sm ml-1' }">
+								需要积分 {{ getSelectedMentorStudentRequiredIntegral() }}
+							</cl-text>
+						</view>
+						<view class="flex flex-row items-center">
+							<cl-icon name="time-line" :size="24" :color="getStatusColor(getSelectedMentorStatus())"></cl-icon>
+							<cl-text :color="getStatusColor(getSelectedMentorStatus())" :pt="{ className: '!text-sm ml-1' }">
+								{{ getStatusText(getSelectedMentorStatus()) }}
+							</cl-text>
+						</view>
+					</view>
+				</view>
+
+				<!-- 时间信息 -->
+				<view v-if="selectedMentorValue != null" class="bg-white dark:!bg-surface-800 rounded-xl p-4 mb-6">
+					<cl-text :pt="{ className: '!text-base font-bold mb-3' }">时间信息</cl-text>
+					<view class="space-y-3">
+						<view class="flex flex-row items-center">
+							<cl-icon name="calendar-event-line" :size="20" color="surface-400"></cl-icon>
+							<cl-text color="surface-400" :pt="{ className: '!text-sm ml-2' }">绑定时间</cl-text>
+							<cl-text :pt="{ className: '!text-sm ml-auto' }">{{ getSelectedMentorBindTime() != '' ? formatDate(getSelectedMentorBindTime()) : '' }}</cl-text>
+						</view>
+						<view v-if="getSelectedMentorGraduateTime() != ''" class="flex flex-row items-center">
+							<cl-icon name="graduation-cap-line" :size="20" color="surface-400"></cl-icon>
+							<cl-text color="surface-400" :pt="{ className: '!text-sm ml-2' }">毕业时间</cl-text>
+							<cl-text :pt="{ className: '!text-sm ml-auto' }">{{ formatDate(getSelectedMentorGraduateTime()) }}</cl-text>
+						</view>
+					</view>
+				</view>
+
+				<!-- 导师简介 -->
+				<view v-if="getSelectedMentorDescription() != ''" class="bg-white dark:!bg-surface-800 rounded-xl p-4 mb-6">
+					<cl-text :pt="{ className: '!text-base font-bold mb-3' }">导师简介</cl-text>
+					<cl-text :pt="{ className: '!text-sm leading-relaxed' }">{{ getSelectedMentorDescription() }}</cl-text>
+				</view>
+
+				<view class="w-full flex flex-row gap-3">
+					<cl-button
+						type="error"
+						size="large"
+						:pt="{ className: 'flex-1' }"
+						@tap="handleUnbindMentor"
+					>
+						解绑
+					</cl-button>
+				</view>
+			</view>
+		</cl-popup>
+	</cl-page>
+</template>
+
+<script lang="ts" setup>
+import { router, useStore } from "@/cool";
+import { ref, onMounted, computed } from "vue";
+import { useUi } from "@/uni_modules/cool-ui";
+import { MentorService } from "@/cool/service/mentor";
+import type { MyMentorItem } from "@/types/habit";
+
+const ui = useUi();
+const { user } = useStore();
+
+// 数据
+const myMentors = ref<MyMentorItem[]>([]);
+const loading = ref(false);
+const showDetailModal = ref(false);
+const selectedMentor = ref<MyMentorItem | null>(null);
+
+// 使用 computed 避免 Smart cast 问题
+const selectedMentorValue = computed<MyMentorItem | null>(() => selectedMentor.value);
+
+// 计算属性
+const isMentor = computed(() => user.info.value?.is_mentor === true);
+
+// 方法
+function goBack() {
+	router.back();
+}
+
+function showMentorDetail(mentor: MyMentorItem) {
+	selectedMentor.value = mentor;
+	showDetailModal.value = true;
+}
+
+function closeDetailModal() {
+	showDetailModal.value = false;
+	selectedMentor.value = null;
+}
+
+function formatDate(dateStr: string): string {
+	const date = new Date(dateStr);
+	return `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}`;
+}
+
+// 获取状态文本
+function getStatusText(status: number): string {
+	switch (status) {
+		case 0:
+			return '申请中';
+		case 1:
+			return '学习中';
+		case 2:
+			return '已认可';
+		case 3:
+			return '已毕业';
+		default:
+			return '未知状态';
+	}
+}
+
+// 获取状态标签类型
+function getStatusType(status: number): string {
+	switch (status) {
+		case 0:
+			return 'warning'; // 申请中 - 黄色
+		case 1:
+			return 'primary'; // 学习中 - 蓝色
+		case 2:
+			return 'success'; // 已认可 - 绿色
+		case 3:
+			return 'info'; // 已毕业 - 灰色
+		default:
+			return 'info';
+	}
+}
+
+// 获取状态颜色
+function getStatusColor(status: number): string {
+	switch (status) {
+		case 0:
+			return 'warning'; // 申请中 - 黄色
+		case 1:
+			return 'primary'; // 学习中 - 蓝色
+		case 2:
+			return 'success'; // 已认可 - 绿色
+		case 3:
+			return 'surface-400'; // 已毕业 - 灰色
+		default:
+			return 'surface-400';
+	}
+}
+
+// 加载数据
+async function loadData() {
+	try {
+		loading.value = true;
+
+		// 加载我的导师列表
+		try {
+			const list = await MentorService.getMyMentors();
+			myMentors.value = Array.isArray(list) ? list : [];
+		} catch (error) {
+			console.error('加载导师列表失败:', error);
+			myMentors.value = [];
+		}
+
+	} catch (error) {
+		console.error('加载数据失败:', error);
+		ui.showToast({
+			message: '加载数据失败'
+		});
+	} finally {
+		loading.value = false;
+	}
+}
+
+// 辅助函数：安全获取导师属性
+function getSelectedMentorAvatar(): string {
+	const m = selectedMentorValue.value;
+	return m != null && m.mentor_avatar != null ? m.mentor_avatar : '';
+}
+
+function getSelectedMentorName(): string {
+	const m = selectedMentorValue.value;
+	return m != null && m.name != null ? m.name : '';
+}
+
+function getSelectedMentorLevelName(): string {
+	const m = selectedMentorValue.value;
+	return m != null && m.level_name != null ? m.level_name : '';
+}
+
+function getSelectedMentorGender(): number | null {
+	const m = selectedMentorValue.value;
+	return m != null && m.gender != null ? m.gender : null;
+}
+
+function getSelectedMentorAge(): number | null {
+	const m = selectedMentorValue.value;
+	return m != null && m.age != null ? m.age : null;
+}
+
+function getSelectedMentorCity(): string {
+	const m = selectedMentorValue.value;
+	return m != null && m.city != null ? m.city : '';
+}
+
+function getSelectedMentorWorkplace(): string {
+	const m = selectedMentorValue.value;
+	return m != null && m.workplace != null ? m.workplace : '';
+}
+
+function getSelectedMentorStudentRequiredIntegral(): number {
+	const m = selectedMentorValue.value;
+	return m != null && m.student_required_integral != null ? m.student_required_integral : 0;
+}
+
+function getSelectedMentorStatus(): number {
+	const m = selectedMentorValue.value;
+	return m != null ? m.status : 0;
+}
+
+function getSelectedMentorBindTime(): string {
+	const m = selectedMentorValue.value;
+	return m != null && m.bind_time != null ? m.bind_time : '';
+}
+
+function getSelectedMentorGraduateTime(): string {
+	const m = selectedMentorValue.value;
+	return m != null && m.graduate_time != null ? m.graduate_time : '';
+}
+
+function getSelectedMentorDescription(): string {
+	const m = selectedMentorValue.value;
+	return m != null && m.description != null && m.description != "" ? m.description : '';
+}
+
+function getSelectedMentorId(): number {
+	const m = selectedMentorValue.value;
+	return m != null && m.mentor_id != null ? m.mentor_id : 0;
+}
+
+function unbindMentor(mentorId: number) {
+	ui.showConfirm({
+		title: '确认解绑',
+		message: '确定要解绑当前导师吗？',
+		callback: (action: string) => {
+			if (action === 'confirm') {
+				MentorService.unbindMentor(mentorId).then(() => {
+					ui.showToast({ message: '解绑成功' });
+					loadData();
+					closeDetailModal();
+				}).catch((error) => {
+					console.error('解绑操作失败:', error);
+					ui.showToast({ message: '解绑失败' });
+				});
+			}
+		}
+	});
+}
+
+function handleUnbindMentor() {
+	const mentorId = getSelectedMentorId();
+	if (mentorId > 0) {
+		unbindMentor(mentorId);
+	}
+}
+
+onMounted(() => {
+	loadData();
+});
+</script>
+
+<style lang="scss" scoped>
+.container {
+	height: 100%;
+}
+</style>

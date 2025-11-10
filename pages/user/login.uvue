@@ -1,0 +1,132 @@
+<template>
+	<cl-page>
+		<cl-topbar safe-area-top background-color="transparent"></cl-topbar>
+
+		<view class="px-10">
+			<!-- Logo -->
+			<view class="flex flex-col items-center justify-center py-20">
+				<cl-image
+						src="/static/logo.png"
+						mode="widthFix"
+						:width="120"
+						:height="120"
+					></cl-image>
+
+				<cl-text :pt="{ className: 'text-xl font-bold mt-3' }">{{ config.name }}</cl-text>
+			</view>
+
+			<!-- 登录方式切换 -->
+			<view class="flex flex-row items-center justify-center mb-6">
+				<cl-button 
+					:pt="{ className: '!px-6 !py-2 !rounded-full mr-2' }"
+					:text="loginType != 'password'"
+					@tap="switchLoginType('password')"
+				>
+					{{ t("密码登录") }}
+				</cl-button>
+				<cl-button 
+					:pt="{ className: '!px-6 !py-2 !rounded-full' }"
+					:text="loginType != 'sms'"
+					@tap="switchLoginType('sms')"
+				>
+					{{ t("验证码登录") }}
+				</cl-button>
+			</view>
+
+			<!-- 手机号登录 -->
+			<login-phone :form="form" :login-type="loginType" @success="toLogin"></login-phone>
+
+			<!-- 微信登录 -->
+			<login-wx :ref="refs.set('loginWx')"></login-wx>
+		</view>
+	</cl-page>
+</template>
+
+<script setup lang="ts">
+import { config } from "@/config";
+import { isDark, parse, router, useRefs, useStore, storage } from "@/cool";
+import { t } from "@/locale";
+import { provide, reactive, ref, onMounted } from "vue";
+import type { LoginForm } from "@/types";
+import { useUi } from "@/uni_modules/cool-ui";
+import LoginPhone from "./components/login/phone.uvue";
+import LoginWx from "./components/login/wx.uvue";
+
+const { user } = useStore();
+const ui = useUi();
+const refs = useRefs();
+
+// 存储键名：保存上次登录的手机号
+const STORAGE_KEY_LAST_PHONE = "last_login_phone";
+
+// 登录类型
+const loginType = ref<'password' | 'sms'>('password');
+
+// 表单
+const form = reactive<LoginForm>({
+	phone: "",
+	password: "",
+	login_type: 'password'
+});
+
+// 页面加载时，从本地存储读取上次登录的手机号
+onMounted(() => {
+	const lastPhone = storage.get(STORAGE_KEY_LAST_PHONE) as string | null;
+	if (lastPhone != null && lastPhone != "") {
+		form.phone = lastPhone;
+	}
+});
+
+
+
+// 切换登录类型
+function switchLoginType(type: 'password' | 'sms') {
+	loginType.value = type;
+	form.login_type = type;
+	if (type == 'password') {
+		form.password = "";
+	} else {
+		form.code = "";
+	}
+}
+
+// 登录成功
+async function toLogin(res: any) {
+	// 根据API文档，登录成功返回 { user: User, token: string, refreshToken: string, expire: number, refreshExpire: number }
+	// 使用 UTSJSONObject 方式访问，因为 res 是 any 类型
+	const resData = res as UTSJSONObject;
+	if (resData != null) {
+		const resUser = resData["user"] as UTSJSONObject | null;
+		const resToken = resData["token"] as string | null;
+		
+		if (resUser != null && resToken != null) {
+			// 设置用户信息
+			user.set(resUser);
+			// 设置token
+			const expireVal = resData["expire"] as number | null;
+			const refreshTokenVal = resData["refreshToken"] as string | null;
+			const refreshExpireVal = resData["refreshExpire"] as number | null;
+			
+			const expire = expireVal != null && expireVal > 0 ? expireVal : 86400; // 24小时过期
+			const refreshToken = refreshTokenVal != null && refreshTokenVal != "" ? refreshTokenVal : resToken;
+			const refreshExpire = refreshExpireVal != null && refreshExpireVal > 0 ? refreshExpireVal : 2592000; // 30天过期
+			
+			user.setToken({
+				token: resToken,
+				expire: expire,
+				refreshToken: refreshToken,
+				refreshExpire: refreshExpire
+			});
+			
+			// 保存登录的手机号，方便下次登录时自动填充
+			const userPhone = resUser["phone"] as string | null;
+			if (userPhone != null && userPhone != "") {
+				storage.set(STORAGE_KEY_LAST_PHONE, userPhone, 0);
+			}
+			
+			router.nextLogin();
+		}
+	}
+}
+
+</script>

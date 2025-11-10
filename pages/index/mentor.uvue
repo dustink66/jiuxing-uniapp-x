@@ -1,0 +1,276 @@
+<template>
+	<cl-page>
+		<cl-topbar fixed :show-back="false" safe-area-top :height="isMp() ? null : 100">
+			<view class="w-full px-3">
+				<cl-input
+					v-model="searchKeyword"
+					:placeholder="t('搜索导师名称或介绍...')"
+					prefix-icon="search-line"
+					:border="false"
+					:pt="{
+						className: parseClass([
+							'w-full',
+							[isDark, '!bg-surface-70', '!bg-white']
+						])
+					}"
+					@input="onSearch"
+				></cl-input>
+			</view>
+		</cl-topbar>
+
+		<!-- #ifdef APP -->
+		<scroll-view class="container" style="flex: 1">
+		<!-- #endif -->
+		<view class="p-3">
+
+			<!-- 导师列表 -->
+			<view class="mb-4">
+
+				<view v-if="mentors == null || mentors.length === 0" class="bg-surface-100 dark:!bg-surface-800 rounded-xl p-6 flex flex-col items-center">
+					<cl-icon name="user-line" :size="48" color="surface-400" :pt="{ className: 'dark:!text-surface-400' }"></cl-icon>
+					<cl-text color="surface-400" :pt="{ className: 'mt-2 dark:!text-surface-400' }">暂无导师</cl-text>
+				</view>
+
+				<view v-else-if="filteredMentors.length === 0" class="bg-surface-100 dark:!bg-surface-800 rounded-xl p-6 flex flex-col items-center">
+					<cl-icon name="search-line" :size="48" color="surface-400" :pt="{ className: 'dark:!text-surface-400' }"></cl-icon>
+					<cl-text color="surface-400" :pt="{ className: 'mt-2 dark:!text-surface-400' }">未找到相关导师</cl-text>
+					<cl-text color="surface-400" :pt="{ className: '!text-sm mt-1 dark:!text-surface-400' }">请尝试其他关键词</cl-text>
+				</view>
+
+				<view v-else>
+					<view v-for="(mentor, index) in filteredMentors" :key="getMentorId(mentor, index)" class="bg-white dark:!bg-surface-800 rounded-xl p-4 mb-3" @tap="handleMentorClick(mentor)">
+						<!-- 导师基本信息 -->
+						<view class="flex flex-row items-start mb-3">
+							<cl-avatar :src="getMentorAvatar(mentor)" :size="60" :pt="{ className: '!rounded-full' }"></cl-avatar>
+							<view class="ml-3 flex-1">
+								<view class="flex flex-row items-center mb-1">
+									<cl-text :pt="{ className: '!text-lg font-bold' }">{{ getMentorName(mentor) }}</cl-text>
+									<cl-text color="primary" :pt="{ className: '!text-sm ml-2' }">{{ getMentorLevelName(mentor) }}</cl-text>
+								</view>
+								<view class="flex flex-row">
+									<view v-if="getMentorGender(mentor) != null" class="flex flex-row items-center mr-3">
+										<cl-icon name="user-line" :size="20" color="surface-400":pt="{ className: 'dark:!text-surface-400' }"></cl-icon>
+										<cl-text color="surface-400" :pt="{ className: '!text-xs dark:!text-surface-400 ml-1' }">
+											{{ getMentorGenderText(mentor) }}
+										</cl-text>
+									</view>
+									<view v-if="getMentorAge(mentor) != null" class="flex flex-row items-center mr-3">
+										<cl-icon name="calendar-line" :size="20" color="surface-400":pt="{ className: 'dark:!text-surface-400' }"></cl-icon>
+										<cl-text color="surface-400" :pt="{ className: '!text-xs dark:!text-surface-400 ml-1' }">{{ getMentorAge(mentor) }}岁</cl-text>
+									</view>
+									<view v-if="getMentorCity(mentor) != ''" class="flex flex-row items-center mr-3">
+										<cl-icon name="map-pin-line" :size="20" color="surface-400":pt="{ className: 'dark:!text-surface-400' }"></cl-icon>
+										<cl-text color="surface-400" :pt="{ className: '!text-xs dark:!text-surface-400 ml-1' }">{{ getMentorCity(mentor) }}</cl-text>
+									</view>
+									<view v-if="getMentorWorkplace(mentor) != ''" class="flex flex-row items-center">
+										<cl-icon name="briefcase-line" :size="20" color="surface-400":pt="{ className: 'dark:!text-surface-400' }"></cl-icon>
+										<cl-text color="surface-400" :pt="{ className: '!text-xs dark:!text-surface-400 ml-1' }">{{ getMentorWorkplace(mentor) }}</cl-text>
+									</view>
+								</view>
+							</view>
+						</view>
+						
+						<!-- 导师数据统计 -->
+						<view class="flex flex-row items-center justify-between">
+							<view class="flex flex-row items-center">
+									<cl-icon name="star-line" :size="24" color="primary"></cl-icon>
+								<cl-text color="primary" :pt="{ className: '!text-sm ml-1' }">
+										入学门槛 {{ getMentorStudentRequiredIntegral(mentor) }}积分
+								</cl-text>
+								</view>
+								<view class="flex flex-row items-center">
+									<cl-icon name="user-heart-line" :size="24" color="success"></cl-icon>
+									<cl-text color="success" :pt="{ className: '!text-sm ml-1' }">
+										学员情况 {{ getMentorActiveStudentsCount(mentor) }} / {{ getMentorMaxStudents(mentor) }}
+									</cl-text>
+								</view>
+						</view>
+					</view>
+				</view>
+			</view>
+		</view>
+		<!-- #ifdef APP -->
+		</scroll-view>
+		<!-- #endif -->
+
+		<!-- 自定义底部导航栏 -->
+		<custom-tabbar></custom-tabbar>
+	</cl-page>
+</template>
+
+<script lang="ts" setup>
+import { isMp, router, useStore, isDark, parseClass } from "@/cool";
+import { ref, computed, onMounted } from "vue";
+import { useUi } from "@/uni_modules/cool-ui";
+import { t } from "@/locale";
+import type { MentorInfo, StudentInfo, StudentRelation } from "@/types/habit";
+import CustomTabbar from "@/components/tabbar.uvue";
+
+const ui = useUi();
+const { mentor, user } = useStore();
+
+// 数据
+const isMentor = computed(() => mentor.isMentor);
+const isUserMentor = computed(() => user.info.value?.is_mentor === true);
+
+// 使用store中的数据
+// 在Android平台上，数据实际是UTSJSONObject[]，使用类型断言避免类型转换错误
+const mentors = computed<any[]>(() => mentor.mentors.value as any[]);
+const students = computed<any[]>(() => mentor.students.value as any[]);
+
+// 搜索相关
+const searchKeyword = ref("");
+
+// 过滤后的导师列表
+const filteredMentors = computed<any[]>(() => {
+	if (mentors.value == null || mentors.value.length === 0) {
+		return [];
+	}
+	
+	if (searchKeyword.value == null || searchKeyword.value.trim() === "") {
+		return mentors.value;
+	}
+	
+	const keyword = searchKeyword.value.toLowerCase().trim();
+	return mentors.value.filter((m: any) => {
+		const mentorObj = m as UTSJSONObject;
+		const name = mentorObj["name"] as string | null;
+		const description = mentorObj["description"] as string | null;
+		const nameMatch = name != null && name.toLowerCase().includes(keyword);
+		const descMatch = description != null && description.toLowerCase().includes(keyword);
+		return nameMatch || descMatch;
+	});
+});
+
+// 辅助函数：安全访问导师对象属性
+function getMentorId(mentor: any, index: number): number {
+	const mentorObj = mentor as UTSJSONObject;
+	const id = mentorObj["id"] as number | null;
+	return id != null ? id : index;
+}
+
+function getMentorAvatar(mentor: any): string {
+	const mentorObj = mentor as UTSJSONObject;
+	return (mentorObj["avatar"] as string | null) ?? "";
+}
+
+function getMentorName(mentor: any): string {
+	const mentorObj = mentor as UTSJSONObject;
+	return (mentorObj["name"] as string | null) ?? "";
+}
+
+function getMentorLevelName(mentor: any): string {
+	const mentorObj = mentor as UTSJSONObject;
+	return (mentorObj["level_name"] as string | null) ?? "";
+}
+
+function getMentorGender(mentor: any): number | null {
+	const mentorObj = mentor as UTSJSONObject;
+	return mentorObj["gender"] as number | null;
+}
+
+function getMentorAge(mentor: any): number | null {
+	const mentorObj = mentor as UTSJSONObject;
+	return mentorObj["age"] as number | null;
+}
+
+function getMentorCity(mentor: any): string {
+	const mentorObj = mentor as UTSJSONObject;
+	return (mentorObj["city"] as string | null) ?? "";
+}
+
+function getMentorWorkplace(mentor: any): string {
+	const mentorObj = mentor as UTSJSONObject;
+	return (mentorObj["workplace"] as string | null) ?? "";
+}
+
+function getMentorStudentRequiredIntegral(mentor: any): number {
+	const mentorObj = mentor as UTSJSONObject;
+	return (mentorObj["student_required_integral"] as number | null) ?? 0;
+}
+
+function getMentorActiveStudentsCount(mentor: any): number {
+	const mentorObj = mentor as UTSJSONObject;
+	return (mentorObj["active_students_count"] as number | null) ?? 0;
+}
+
+function getMentorMaxStudents(mentor: any): number {
+	const mentorObj = mentor as UTSJSONObject;
+	return (mentorObj["max_students"] as number | null) ?? 0;
+}
+
+function getMentorGenderText(mentor: any): string {
+	const gender = getMentorGender(mentor);
+	if (gender == null) return '未知';
+	if (gender === 1) return '男';
+	if (gender === 2) return '女';
+	return '未知';
+}
+
+// 方法
+function formatDate(dateStr: string): string {
+  const date = new Date(dateStr);
+  return `${date.getMonth() + 1}/${date.getDate()}`;
+}
+
+// 搜索处理
+function onSearch() {
+  // 搜索逻辑已在 computed 中处理
+}
+
+// 页面跳转
+function toApplyMentor() {
+  if (isUserMentor.value) {
+    ui.showToast({
+      message: '您已经是导师了'
+    });
+    return;
+  }
+  router.to('/pages/mentor/apply');
+}
+
+function toMentorDetail(id: number) {
+  router.to(`/pages/mentor/detail?id=${id}`);
+}
+
+// 处理导师卡片点击
+function handleMentorClick(mentor: any) {
+	const mentorObj = mentor as UTSJSONObject;
+	const id = mentorObj["id"] as number | null;
+	if (id != null) {
+		toMentorDetail(id);
+	}
+}
+
+// 加载数据
+async function loadData() {
+  try {
+    // 并行加载导师相关数据
+    const promises: Array<Promise<MentorInfo[] | MentorInfo | null>> = [
+      mentor.getMentors()
+    ];
+    await Promise.all(promises);
+
+    // 如果是导师，加载学员列表
+    if (mentor.isMentor) {
+      await mentor.getStudents();
+    }
+
+  } catch (error) {
+    console.error('加载数据失败:', error);
+    ui.showToast({
+      message: '加载数据失败'
+    });
+  }
+}
+
+onMounted(() => {
+  loadData();
+});
+</script>
+
+<style lang="scss" scoped>
+.container {
+  height: 100%;
+}
+</style>

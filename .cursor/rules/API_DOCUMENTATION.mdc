@@ -1,0 +1,1002 @@
+---
+description: 自律习惯养成APP - API文档
+globs: *.uts,*.uvue, *.ts, *.js
+alwaysApply: false
+---
+# 自律习惯养成APP - API文档
+
+## 基础信息
+
+- **Base URL**: `https://jiuxing.test/api`
+- **认证方式**: JWT Bearer Token
+- **响应格式**: JSON
+
+## 响应格式
+
+所有API响应都遵循以下格式：
+
+```json
+{
+    "code": 200,
+    "message": "操作成功",
+    "data": {}
+}
+```
+
+## 错误码说明
+
+| 错误码 | 说明 |
+|--------|------|
+| 200 | 成功 |
+| 400 | 请求参数错误 |
+| 401 | 未认证或Token无效 |
+| 403 | 权限不足 |
+| 404 | 资源不存在 |
+| 422 | 数据验证失败 |
+| 429 | 请求频率限制 |
+| 500 | 服务器内部错误 |
+
+## 认证相关
+
+### 令牌说明
+
+系统使用JWT（JSON Web Token）进行身份认证，支持访问令牌和刷新令牌机制：
+
+- **访问令牌（token）**: 用于API请求认证，有效期24小时（86400秒）
+- **刷新令牌（refreshToken）**: 用于获取新的访问令牌，有效期30天（2592000秒）
+- **expire**: 访问令牌过期时间（秒）
+- **refreshExpire**: 刷新令牌过期时间（秒）
+
+当访问令牌即将过期时，客户端应使用刷新令牌调用 `/auth/refresh` 接口获取新的令牌对。
+
+### 1. 发送验证码
+
+**POST** `/auth/send-code`
+
+**请求参数：**
+```json
+{
+    "phone": "13800138000",
+    "type": "register" // register, login, reset
+}
+```
+
+**响应：**
+```json
+{
+    "code": 200,
+    "message": "验证码发送成功",
+    "data": {
+        "code": "123456",
+        "expired_at": "2024-01-01 12:05:00"
+    }
+}
+```
+
+### 2. 用户注册
+
+**POST** `/auth/register`
+
+**请求参数：**
+```json
+{
+    "phone": "13800138000",
+    "code": "123456",
+    "password": "123456",
+    "nickname": "用户昵称"
+}
+```
+
+**响应：**
+```json
+{
+    "code": 200,
+    "message": "注册成功",
+    "data": {
+        "user": {
+            "id": 1,
+            "phone": "13800138000",
+            "nickname": "用户昵称",
+            "integral": 0,
+            "level": 1
+        },
+        "expire": 86400,
+        "token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
+        "refreshExpire": 2592000,
+        "refreshToken": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9..."
+    }
+}
+```
+
+### 3. 用户登录
+
+**POST** `/auth/login`
+
+**请求参数：**
+
+**验证码登录：**
+```json
+{
+    "phone": "13800138000",
+    "login_type": "sms",
+    "code": "123456"
+}
+```
+
+**密码登录：**
+```json
+{
+    "phone": "13800138000",
+    "login_type": "password",
+    "password": "123456"
+}
+```
+
+**响应：**
+```json
+{
+    "code": 200,
+    "message": "登录成功",
+    "data": {
+        "user": {
+            "id": 1,
+            "phone": "13800138000",
+            "nickname": "用户昵称",
+            "integral": 100,
+            "level": 1
+        },
+        "expire": 86400,
+        "token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
+        "refreshExpire": 2592000,
+        "refreshToken": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9..."
+    }
+}
+```
+
+### 4. 重置密码
+
+**POST** `/auth/reset-password`
+
+**请求参数：**
+```json
+{
+    "phone": "13800138000",
+    "code": "123456",
+    "password": "newpassword123"
+}
+```
+
+**响应：**
+```json
+{
+    "code": 200,
+    "message": "密码重置成功",
+    "data": null
+}
+```
+
+### 5. 刷新Token
+
+**POST** `/auth/refresh`
+
+**请求头：**
+```
+Authorization: Bearer {token}
+```
+
+**响应：**
+```json
+{
+    "code": 200,
+    "message": "Token刷新成功",
+    "data": {
+        "expire": 86400,
+        "token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
+        "refreshExpire": 2592000,
+        "refreshToken": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9..."
+    }
+}
+```
+
+### 6. 退出登录
+
+**POST** `/auth/logout`
+
+**请求头：**
+```
+Authorization: Bearer {token}
+```
+
+**响应：**
+```json
+{
+    "code": 200,
+    "message": "退出成功",
+    "data": null
+}
+```
+
+## 任务管理
+
+### 1. 获取任务列表
+
+**GET** `/tasks`
+
+**请求头：**
+```
+Authorization: Bearer {token}
+```
+
+**查询参数：**
+- `type`: 任务类型 (1-个人任务, 2-公共任务)
+- `status`: 任务状态 (0-禁用, 1-启用)
+- `tag_id`: 标签ID
+
+**响应：**
+```json
+{
+    "code": 200,
+    "message": "获取成功",
+    "data": [
+        {
+            "id": 1,
+            "title": "每日阅读",
+            "description": "每天阅读30分钟",
+            "weekly_frequency": 7,
+            "can_makeup": true,
+            "color": "#3498db",
+            "reminder_enabled": true,
+            "reminder_time": "20:00",
+            "type": 1,
+            "status": 1,
+            "tag": {
+                    "id": 1,
+                    "name": "学习"
+                }
+            }
+        ],
+        "current_page": 1,
+        "per_page": 20,
+        "total": 1
+    }
+}
+```
+
+### 2. 创建任务
+
+**POST** `/tasks`
+
+**请求头：**
+```
+Authorization: Bearer {token}
+```
+
+**请求参数：**
+```json
+{
+    "title": "每日阅读",
+    "description": "每天阅读30分钟",
+    "weekly_frequency": 7,
+    "can_makeup": true,
+    "color": "#3498db",
+    "reminder_enabled": true,
+    "reminder_time": "20:00",
+    "tag_id": 1
+}
+```
+
+**响应：**
+```json
+{
+    "code": 200,
+    "message": "创建成功",
+    "data": {
+        "id": 1,
+        "title": "每日阅读",
+        "description": "每天阅读30分钟",
+        "weekly_frequency": 7,
+        "can_makeup": true,
+        "color": "#3498db",
+        "reminder_enabled": true,
+        "reminder_time": "20:00",
+        "type": 1,
+        "status": 1
+    }
+}
+```
+
+### 3. 获取任务详情
+
+**GET** `/tasks/{id}`
+
+**请求头：**
+```
+Authorization: Bearer {token}
+```
+
+**响应：**
+```json
+{
+    "code": 200,
+    "message": "获取成功",
+    "data": {
+        "id": 1,
+        "title": "每日阅读",
+        "description": "每天阅读30分钟",
+        "weekly_frequency": 7,
+        "can_makeup": true,
+        "color": "#3498db",
+        "reminder_enabled": true,
+        "reminder_time": "20:00",
+        "type": 1,
+        "status": 1,
+        "tag": {
+            "id": 1,
+            "name": "学习"
+        },
+        "checkins": [
+            {
+                "id": 1,
+                "checkin_date": "2024-01-01",
+                "is_makeup": false,
+                "note": "今天读了一本好书"
+            }
+        ]
+    }
+}
+```
+
+### 4. 更新任务
+
+**PUT** `/tasks/{id}`
+
+**请求头：**
+```
+Authorization: Bearer {token}
+```
+
+**请求参数：**
+```json
+{
+    "title": "每日阅读更新",
+    "description": "每天阅读45分钟",
+    "weekly_frequency": 5
+}
+```
+
+**响应：**
+```json
+{
+    "code": 200,
+    "message": "更新成功",
+    "data": {
+        "id": 1,
+        "title": "每日阅读更新",
+        "description": "每天阅读45分钟",
+        "weekly_frequency": 5,
+        "can_makeup": true,
+        "color": "#3498db",
+        "reminder_enabled": true,
+        "reminder_time": "20:00",
+        "type": 1,
+        "status": 1
+    }
+}
+```
+
+### 5. 删除任务
+
+**DELETE** `/tasks/{id}`
+
+**请求头：**
+```
+Authorization: Bearer {token}
+```
+
+**响应：**
+```json
+{
+    "code": 200,
+    "message": "删除成功",
+    "data": null
+}
+```
+
+### 6. 获取任务统计
+
+**GET** `/tasks/{id}/stats`
+
+**请求头：**
+```
+Authorization: Bearer {token}
+```
+
+**响应：**
+```json
+{
+    "code": 200,
+    "message": "获取成功",
+    "data": {
+        "task_id": 1,
+        "total_checkins": 30,
+        "this_week_checkins": 5,
+        "this_month_checkins": 20,
+        "consecutive_days": 7,
+        "completion_rate": 71.43
+    }
+}
+```
+
+## 打卡管理
+
+### 1. 获取打卡记录
+
+**GET** `/checkins`
+
+**请求头：**
+```
+Authorization: Bearer {token}
+```
+
+**查询参数：**
+- `task_id`: 任务ID
+- `start_date`: 开始日期
+- `end_date`: 结束日期
+- `is_makeup`: 是否补打卡 (0-否, 1-是)
+
+**响应：**
+```json
+{
+    "code": 200,
+    "message": "获取成功",
+    "data": [
+        {
+            "id": 1,
+            "task_id": 1,
+            "task_title": "每日阅读",
+            "task_color": "#3498db",
+            "checkin_date": "2024-01-01",
+            "is_makeup": false,
+            "note": "今天读了一本好书",
+            "created_at": "2024-01-01T10:00:00.000000Z"
+        }
+    ]
+}
+```
+
+### 2. 打卡
+
+**POST** `/checkins`
+
+**请求头：**
+```
+Authorization: Bearer {token}
+```
+
+**请求参数：**
+```json
+{
+    "task_id": 1,
+    "checkin_date": "2024-01-01",
+    "note": "今天读了一本好书"
+}
+```
+
+**响应：**
+```json
+{
+    "code": 200,
+    "message": "打卡成功",
+    "data": {
+        "id": 1,
+        "task_id": 1,
+        "checkin_date": "2024-01-01",
+        "is_makeup": false,
+        "note": "今天读了一本好书",
+        "task": {
+            "id": 1,
+            "title": "每日阅读"
+        }
+    }
+}
+```
+
+### 3. 获取打卡统计
+
+**GET** `/checkins/stats`
+
+**请求头：**
+```
+Authorization: Bearer {token}
+```
+
+**响应：**
+```json
+{
+    "code": 200,
+    "message": "获取成功",
+    "data": {
+        "total_checkins": 100,
+        "this_week_checkins": 5,
+        "this_month_checkins": 20,
+        "consecutive_days": 7,
+        "makeup_checkins": 3
+    }
+}
+```
+
+## 导师系统
+
+### 1. 申请成为导师
+
+**POST** `/mentor/apply`
+
+**请求头：**
+```
+Authorization: Bearer {token}
+```
+
+**响应：**
+```json
+{
+    "code": 200,
+    "message": "申请提交成功，请等待审核",
+    "data": null
+}
+```
+
+### 2. 获取导师列表
+
+**GET** `/mentor/list`
+
+**请求头：**
+```
+Authorization: Bearer {token}
+```
+
+**响应：**
+```json
+{
+    "code": 200,
+    "message": "获取成功",
+    "data": [
+        {
+            "id": 2,
+            "nickname": "导师昵称",
+            "avatar": "https://example.com/avatar.jpg",
+            "integral": 5000,
+            "level": 3,
+            "mentor_threshold": 1000,
+            "student_count": 5,
+            "max_students": 10,
+            "created_at": "2024-01-01T00:00:00.000000Z"
+        }
+    ]
+        "total": 1
+    }
+}
+```
+
+### 3. 绑定导师
+
+**POST** `/mentor/{id}/bind`
+
+**请求头：**
+```
+Authorization: Bearer {token}
+```
+
+**响应：**
+```json
+{
+    "code": 200,
+    "message": "绑定成功",
+    "data": null
+}
+```
+
+### 4. 解绑导师
+
+**POST** `/mentor/{id}/unbind`
+
+**请求头：**
+```
+Authorization: Bearer {token}
+```
+
+**响应：**
+```json
+{
+    "code": 200,
+    "message": "解绑成功",
+    "data": null
+}
+```
+
+### 5. 获取我的学员（导师用）
+
+**GET** `/mentor/students`
+
+**请求头：**
+```
+Authorization: Bearer {token}
+```
+
+**响应：**
+```json
+{
+    "code": 200,
+    "message": "获取成功",
+    "data": [
+        {
+            "id": 1,
+            "student": {
+                "id": 3,
+                "nickname": "学员昵称",
+                "integral": 500,
+                "level": 1
+            },
+            "status": 1,
+            "created_at": "2024-01-01T00:00:00.000000Z"
+        }
+    ]
+}
+```
+
+### 6. 学员毕业（导师用）
+
+**POST** `/mentor/{student_id}/graduate`
+
+**请求头：**
+```
+Authorization: Bearer {token}
+```
+
+**响应：**
+```json
+{
+    "code": 200,
+    "message": "学员毕业成功",
+    "data": null
+}
+```
+
+## 活动管理
+
+### 1. 获取活动列表
+
+**GET** `/activities`
+
+**请求头：**
+```
+Authorization: Bearer {token}
+```
+
+**查询参数：**
+- `type`: 活动类型 (1-线上, 2-线下)
+- `start_time`: 开始时间
+- `end_time`: 结束时间
+- `page`: 页码
+- `per_page`: 每页数量
+
+**响应：**
+```json
+{
+    "code": 200,
+    "message": "获取成功",
+    "data": {
+        "data": [
+            {
+                "id": 1,
+                "title": "读书分享会",
+                "type": 2,
+                "description": "线下读书分享活动",
+                "cover_image": "https://example.com/cover.jpg",
+                "start_time": "2024-01-15 14:00:00",
+                "end_time": "2024-01-15 16:00:00",
+                "address": "北京市朝阳区",
+                "min_integral": 100,
+                "min_level": 1,
+                "max_participants": 50,
+                "current_participants": 20,
+                "status": 1
+            }
+        ],
+        "current_page": 1,
+        "per_page": 20,
+        "total": 1
+    }
+}
+```
+
+### 2. 获取活动详情
+
+**GET** `/activities/{id}`
+
+**请求头：**
+```
+Authorization: Bearer {token}
+```
+
+**响应：**
+```json
+{
+    "code": 200,
+    "message": "获取成功",
+    "data": {
+        "id": 1,
+        "title": "读书分享会",
+        "type": 2,
+        "description": "线下读书分享活动",
+        "cover_image": "https://example.com/cover.jpg",
+        "detail_images": [
+            "https://example.com/detail1.jpg",
+            "https://example.com/detail2.jpg"
+        ],
+        "start_time": "2024-01-15 14:00:00",
+        "end_time": "2024-01-15 16:00:00",
+        "address": "北京市朝阳区",
+        "min_integral": 100,
+        "min_level": 1,
+        "max_participants": 50,
+        "current_participants": 20,
+        "status": 1
+    }
+}
+```
+
+### 3. 报名活动
+
+**POST** `/activities/{id}/register`
+
+**请求头：**
+```
+Authorization: Bearer {token}
+```
+
+**响应：**
+```json
+{
+    "code": 200,
+    "message": "报名成功",
+    "data": null
+}
+```
+
+### 4. 取消报名
+
+**POST** `/activities/{id}/unregister`
+
+**请求头：**
+```
+Authorization: Bearer {token}
+```
+
+**响应：**
+```json
+{
+    "code": 200,
+    "message": "取消报名成功",
+    "data": null
+}
+```
+
+### 5. 活动签到
+
+**POST** `/activities/{id}/checkin`
+
+**请求头：**
+```
+Authorization: Bearer {token}
+```
+
+**响应：**
+```json
+{
+    "code": 200,
+    "message": "签到成功",
+    "data": null
+}
+```
+
+## 用户个人中心
+
+### 1. 获取用户信息
+
+**GET** `/user/profile`
+
+**请求头：**
+```
+Authorization: Bearer {token}
+```
+
+**响应：**
+```json
+{
+    "code": 200,
+    "message": "获取成功",
+    "data": {
+        "id": 1,
+        "phone": "13800138000",
+        "nickname": "用户昵称",
+        "avatar": "https://example.com/avatar.jpg",
+        "gender": 1,
+        "birthday": "1990-01-01",
+        "workplace": "某某科技有限公司",
+        "integral": 1000,
+        "level": 2,
+        "is_mentor": false,
+        "mentor_status": 0,
+        "status": 1
+    }
+}
+```
+
+### 2. 更新用户信息
+
+**PUT** `/user/profile`
+
+**请求头：**
+```
+Authorization: Bearer {token}
+```
+
+**请求参数：**
+```json
+{
+    "nickname": "新昵称",
+    "avatar": "https://example.com/new-avatar.jpg",
+    "gender": 1,
+    "birthday": "1990-01-01",
+    "workplace": "某某科技有限公司"
+}
+```
+
+**响应：**
+```json
+{
+    "code": 200,
+    "message": "更新成功",
+    "data": {
+        "id": 1,
+        "phone": "13800138000",
+        "nickname": "新昵称",
+        "avatar": "https://example.com/new-avatar.jpg",
+        "gender": 1,
+        "birthday": "1990-01-01",
+        "workplace": "某某科技有限公司",
+        "integral": 1000,
+        "level": 2,
+        "is_mentor": false,
+        "mentor_status": 0,
+        "status": 1
+    }
+}
+```
+
+### 3. 获取积分信息
+
+**GET** `/user/integral`
+
+**请求头：**
+```
+Authorization: Bearer {token}
+```
+
+**响应：**
+```json
+{
+    "code": 200,
+    "message": "获取成功",
+    "data": {
+        "current_integral": 1000,
+        "current_level": 2,
+        "total_earned": 1200,
+        "total_deducted": 200,
+        "checkin_earned": 800,
+        "activity_earned": 400
+    }
+}
+```
+
+### 4. 获取积分记录
+
+**GET** `/user/integral/history`
+
+**请求头：**
+```
+Authorization: Bearer {token}
+```
+
+**查询参数：**
+- `page`: 页码
+- `per_page`: 每页数量
+
+**响应：**
+```json
+{
+    "code": 200,
+    "message": "获取成功",
+    "data": {
+        "data": [
+            {
+                "id": 1,
+                "change_amount": 10,
+                "current_integral": 1000,
+                "type": "checkin",
+                "description": "打卡获得积分",
+                "related_id": 1,
+                "created_at": "2024-01-01T00:00:00.000000Z"
+            }
+        ],
+        "current_page": 1,
+        "per_page": 20,
+        "total": 1
+    }
+}
+```
+
+### 5. 获取个人中心数据
+
+**GET** `/user/dashboard`
+
+**请求头：**
+```
+Authorization: Bearer {token}
+```
+
+**响应：**
+```json
+{
+    "code": 200,
+    "message": "获取成功",
+    "data": {
+        "user": {
+            "id": 1,
+            "nickname": "用户昵称",
+            "integral": 1000,
+            "level": 2
+        },
+        "stats": {
+            "total_tasks": 5,
+            "active_tasks": 3,
+            "total_checkins": 100,
+            "consecutive_days": 7,
+            "total_activities": 10,
+            "attended_activities": 8
+        },
+        "recent_checkins": [
+            {
+                "id": 1,
+                "task": {
+                    "title": "每日阅读"
+                },
+                "checkin_date": "2024-01-01",
+                "note": "今天读了一本好书"
+            }
+        ]
+    }
+}
+```
+
+## 错误码说明
+
+| 错误码 | 说明 |
+|--------|------|
+| 200 | 成功 |
+| 400 | 请求参数错误 |
+| 401 | 未认证或Token无效 |
+| 403 | 权限不足 |
+| 404 | 资源不存在 |
+| 429 | 请求过于频繁 |
+| 500 | 服务器内部错误 |
+
+## 注意事项
+
+1. 所有需要认证的接口都需要在请求头中携带 `Authorization: Bearer {token}`
+2. 验证码在开发环境会直接返回，生产环境需要接入真实的短信服务
+3. 文件上传功能需要配置存储服务
+4. 分页参数 `page` 从1开始，`per_page` 默认为20，最大为100
+5. 时间格式统一使用 `Y-m-d H:i:s` 格式
+6. 日期格式统一使用 `Y-m-d` 格式
+

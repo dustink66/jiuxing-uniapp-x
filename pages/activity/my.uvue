@@ -1,0 +1,195 @@
+<template>
+	<cl-page>
+
+		<!-- #ifdef APP -->
+		<scroll-view class="container" style="flex: 1">
+		<!-- #endif -->
+		<view class="p-3">
+			<!-- 活动列表 -->
+			<view v-if="activities.length === 0" class="bg-surface-100 dark:!bg-surface-800 rounded-xl p-6 text-center">
+				<cl-icon name="calendar-event-line" :size="48" :pt="{ className: 'dark:!text-surface-400' }"></cl-icon>
+				<cl-text :pt="{ className: 'mt-2 dark:!text-surface-400' }">还没有参与任何活动</cl-text>
+			</view>
+
+			<view v-else>
+				<view v-for="activity in activities" :key="activity.id" class="bg-white dark:!bg-surface-800 rounded-xl mb-4 overflow-hidden" @tap="toActivityDetail(activity.id)">
+					<!-- 活动封面 -->
+					<cl-image 
+						:src="activity.cover_image" 
+						:width="750" 
+						:height="200"
+						:pt="{ className: '!w-full' }"
+					></cl-image>
+					
+					<view class="p-4">
+						<!-- 活动标题 -->
+						<view class="flex flex-row items-center justify-between mb-2">
+							<cl-text :pt="{ className: '!text-lg font-bold' }">{{ activity.title }}</cl-text>
+						</view>
+
+						<!-- 活动描述 -->
+						<cl-text color="surface-400" :pt="{ className: '!text-sm mb-3' }" :lines="2">
+							{{ activity.description }}
+						</cl-text>
+
+						<!-- 活动时间 -->
+						<view class="flex flex-row items-center mb-2">
+							<cl-icon name="time-line" :size="16" color="surface-400"></cl-icon>
+							<cl-text color="surface-400" :pt="{ className: '!text-sm ml-1' }">
+								{{ formatDateTime(activity.start_time) }} - {{ formatDateTime(activity.end_time) }}
+							</cl-text>
+						</view>
+
+						<!-- 活动地址 -->
+						<view v-if="activity.address" class="flex flex-row items-center mb-3">
+							<cl-icon name="map-pin-line" :size="16" color="surface-400"></cl-icon>
+							<cl-text color="surface-400" :pt="{ className: '!text-sm ml-1' }">{{ activity.address }}</cl-text>
+						</view>
+
+						<!-- 活动状态 -->
+						<view class="flex flex-row items-center justify-between">
+							<cl-text :pt="{ className: '!text-sm' }" :color="getActivityStatusColor(activity)">
+								{{ getActivityStatusText(activity) }}
+							</cl-text>
+							<cl-button 
+								:type="getButtonType(activity) as any" 
+								size="small"
+								:disabled="!canJoin(activity)"
+								@tap.stop="handleAction(activity)"
+							>
+								{{ getButtonText(activity) }}
+							</cl-button>
+						</view>
+					</view>
+				</view>
+			</view>
+		</view>
+		<!-- #ifdef APP -->
+		</scroll-view>
+		<!-- #endif -->
+	</cl-page>
+</template>
+
+<script lang="ts" setup>
+import { router } from "@/cool";
+import { ref, onMounted, computed } from "vue";
+import { useUi } from "@/uni_modules/cool-ui";
+import { activity as activityStore, myActivityList } from "@/cool/store/activity";
+import type { ActivityInfo } from "@/types/habit";
+
+const ui = useUi();
+
+// 数据 - 使用 computed 从 store 获取
+const activities = computed<ActivityInfo[]>(() => myActivityList.value);
+
+// 方法
+function goBack() {
+	router.back();
+}
+
+function toActivityDetail(id: number) {
+	router.to(`/pages/activity/detail?id=${id}`);
+}
+
+function formatDateTime(dateStr: string): string {
+	const date = new Date(dateStr);
+	return `${date.getMonth() + 1}/${date.getDate()} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+}
+
+function getActivityStatusColor(activity: ActivityInfo): string {
+	const now = new Date();
+	const startTime = new Date(activity.start_time);
+	const endTime = new Date(activity.end_time);
+	
+	if (now < startTime) return 'primary';
+	if (now >= startTime && now <= endTime) return 'success';
+	return 'surface-400';
+}
+
+function getActivityStatusText(activity: ActivityInfo): string {
+	const now = new Date();
+	const startTime = new Date(activity.start_time);
+	const endTime = new Date(activity.end_time);
+	
+	if (now < startTime) return '未开始';
+	if (now >= startTime && now <= endTime) return '进行中';
+	return '已结束';
+}
+
+function getButtonType(activity: ActivityInfo): string {
+	const now = new Date();
+	const startTime = new Date(activity.start_time);
+	const endTime = new Date(activity.end_time);
+	
+	if (now < startTime) return 'primary';
+	if (now >= startTime && now <= endTime) return 'success';
+	return 'default';
+}
+
+function getButtonText(activity: ActivityInfo): string {
+	const now = new Date();
+	const startTime = new Date(activity.start_time);
+	const endTime = new Date(activity.end_time);
+	
+	if (now < startTime) return '报名';
+	if (now >= startTime && now <= endTime) return '签到';
+	return '已结束';
+}
+
+function canJoin(activity: ActivityInfo): boolean {
+	const now = new Date();
+	const endTime = new Date(activity.end_time);
+	return now <= endTime && (activity.current_participants != null ? activity.current_participants : 0) < (activity.max_participants != null ? activity.max_participants : 0);
+}
+
+// 加载数据
+async function loadActivities() {
+	try {
+		// 调用 getMyActivities 更新 store
+		await activityStore.getMyActivities();
+	} catch (error) {
+		console.error('加载数据失败:', error);
+		ui.showToast({
+			message: '加载数据失败'
+		});
+	}
+}
+
+async function handleAction(act: ActivityInfo) {
+	try {
+		const now = new Date();
+		const startTime = new Date(act.start_time);
+		
+		if (now < startTime) {
+			// 报名活动
+			await activityStore.registerActivity(act.id);
+			ui.showToast({
+				message: '报名成功'
+			});
+			loadActivities();
+		} else {
+			// 活动签到
+			await activityStore.checkinActivity(act.id);
+			ui.showToast({
+				message: '签到成功'
+			});
+			loadActivities();
+		}
+	} catch (error) {
+		console.error('操作失败:', error);
+		ui.showToast({
+			message: '操作失败'
+		});
+	}
+}
+
+onMounted(() => {
+	loadActivities();
+});
+</script>
+
+<style lang="scss" scoped>
+.container {
+	height: 100%;
+}
+</style>

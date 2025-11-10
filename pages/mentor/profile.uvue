@@ -1,0 +1,177 @@
+<template>
+	<cl-page>
+
+		<!-- #ifdef APP -->
+		<scroll-view class="container" style="flex: 1">
+		<!-- #endif -->
+		<view class="p-3">
+			<!-- 导师资料表单 -->
+			<view class="bg-white dark:!bg-surface-800 rounded-xl p-4 mb-4">
+				<cl-text :pt="{ className: '!text-lg font-bold mb-4' }">{{ t("导师资料设置") }}</cl-text>
+				
+				<!-- 导师简介 -->
+				<view class="mb-4">
+					<cl-text :pt="{ className: 'text-sm mb-2' }" color="info">{{ t("导师简介") }} *</cl-text>
+					<cl-textarea
+						v-model="form.description"
+						:placeholder="t('请输入导师简介，分享您的经验和心得...')"
+						:maxlength="1000"
+						:pt="{
+							className: parseClass([
+								'!min-h-24 !rounded-xl !px-4',
+								[isDark, '!bg-surface-70', '!bg-white']
+							])
+						}"
+					></cl-textarea>
+					<cl-text color="info" :pt="{ className: '!text-xs mt-1' }">
+						{{ form.description.length }}/1000
+					</cl-text>
+				</view>
+
+				<!-- 学员申请积分要求 -->
+				<view class="mb-4">
+					<cl-text :pt="{ className: 'text-sm mb-2' }" color="info">{{ t("学员申请积分要求") }} *</cl-text>
+					<cl-input-number
+						v-model="form.student_required_integral"
+						:min="0"
+						:max="10000"
+						:placeholder="t('请输入积分要求')"
+						:border="false"
+						:pt="{
+							className: parseClass([
+								'!rounded-xl !p-4',
+								[isDark, '!bg-surface-70', '!bg-white']
+							])
+						}"
+					></cl-input-number>
+					<cl-text color="info" :pt="{ className: '!text-xs mt-1' }">
+						{{ t("学员申请绑定您时需要达到的积分要求") }}
+					</cl-text>
+				</view>
+
+				<!-- 最大招收学员数量 -->
+				<view class="mb-4">
+					<cl-text :pt="{ className: 'text-sm mb-2' }" color="info">{{ t("最大招收学员数量") }} *</cl-text>
+					<cl-input-number
+						v-model="form.max_students"
+						:min="1"
+						:max="100"
+						:placeholder="t('请输入最大招收学员数量')"
+						:border="false"
+						:pt="{
+							className: parseClass([
+								'!rounded-xl !p-4',
+								[isDark, '!bg-surface-70', '!bg-white']
+							])
+						}"
+					></cl-input-number>
+					<cl-text color="info" :pt="{ className: '!text-xs mt-1' }">
+						{{ t("您最多可以招收的学员数量") }}
+					</cl-text>
+				</view>
+			</view>
+
+			<!-- 保存按钮 -->
+			<cl-button
+				:disabled="disabled"
+				:loading="loading"
+				:pt="{ className: '!h-[90rpx] !rounded-xl' }"
+				@tap="saveProfile"
+			>
+				{{ t("保存资料") }}
+			</cl-button>
+		</view>
+		<!-- #ifdef APP -->
+		</scroll-view>
+		<!-- #endif -->
+	</cl-page>
+</template>
+
+<script lang="ts" setup>
+import { router, isDark, parseClass } from "@/cool";
+import { t } from "@/locale";
+import { ref, onMounted, computed, reactive } from "vue";
+import { useUi } from "@/uni_modules/cool-ui";
+import { MentorService } from "@/cool/service/mentor";
+import type { MentorProfileForm } from "@/types/habit";
+
+const ui = useUi();
+
+// 数据
+const loading = ref(false);
+
+// 表单
+const form = reactive<MentorProfileForm>({
+	description: "",
+	student_required_integral: 500,
+	max_students: 10
+});
+
+// 计算属性
+const disabled = computed(() => {
+	return form.description.trim() === "" || 
+		   form.student_required_integral < 0 || 
+		   form.student_required_integral > 10000 ||
+		   form.max_students < 1 || 
+		   form.max_students > 100;
+});
+
+// 方法
+async function loadProfile() {
+	try {
+		loading.value = true;
+		const profile = await MentorService.getMentorProfile();
+		
+		// 填充表单数据
+		form.description = profile.description != null && profile.description != "" ? profile.description : "";
+		form.student_required_integral = profile.student_required_integral != null ? profile.student_required_integral : 500;
+		form.max_students = profile.max_students != null ? profile.max_students : 10;
+	} catch (error) {
+		console.error('加载导师资料失败:', error);
+		ui.showToast({
+			message: t("加载导师资料失败")
+		});
+	} finally {
+		loading.value = false;
+	}
+}
+
+async function saveProfile() {
+	if (disabled.value == true) {
+		return;
+	}
+
+	try {
+		loading.value = true;
+		await MentorService.updateMentorProfile(form);
+		
+		ui.showToast({
+			message: t("保存成功")
+		});
+		
+		// 延迟返回上一页
+		setTimeout(() => {
+			router.back();
+		}, 1500);
+	} catch (error: any) {
+		console.error('保存导师资料失败:', error);
+		const errMsg = error.message as string | null | undefined;
+		const errorMessage: string = (errMsg != null && errMsg != "" ? errMsg : t("保存失败")) as string;
+		ui.showToast({
+			message: errorMessage
+		});
+	} finally {
+		loading.value = false;
+	}
+}
+
+onMounted(() => {
+	loadProfile();
+});
+</script>
+
+<style lang="scss" scoped>
+.container {
+	height: 100%;
+}
+</style>

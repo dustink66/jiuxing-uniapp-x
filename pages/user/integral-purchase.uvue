@@ -1,0 +1,377 @@
+<template>
+	<cl-page>
+
+		<!-- #ifdef APP -->
+		<scroll-view class="container" style="flex: 1">
+		<!-- #endif -->
+		<view class="p-3">
+			<!-- 价格配置显示 -->
+			<view class="bg-white dark:!bg-surface-800 rounded-xl p-4 mb-4">
+				<view class="flex flex-row items-center justify-center">
+					<cl-icon name="money-cny-circle-line" :size="90" color="primary"></cl-icon>
+					<view class="ml-2">
+						<cl-text :pt="{ className: '!text-2xl font-bold' }">{{ priceConfig != null && priceConfig.price_per_hour != null && priceConfig.price_per_hour != "" ? priceConfig.price_per_hour : '0.01' }}</cl-text>
+						<cl-text color="info" :pt="{ className: '!text-sm' }">每小时咨询价格</cl-text>
+					</view>
+				</view>
+			</view>
+
+			<!-- 时长选择 -->
+			<view class="mb-4">
+				<cl-text :pt="{ className: '!text-lg font-bold mb-3' }">选择咨询时长</cl-text>
+				
+				<view class="mb-3">
+					<cl-input-number
+						v-model="selectedHours"
+						:min="1"
+						:max="100"
+						:placeholder="t('请输入咨询时长')"
+						:border="false"
+						:pt="{
+							className: parseClass([
+								' !rounded-xl !p-4',
+								[isDark, '!bg-surface-70', '!bg-white']
+							])
+						}"
+					></cl-input-number>
+				</view>
+			</view>
+
+			<!-- 购买说明 -->
+			<view class="bg-white dark:!bg-surface-700 rounded-xl p-4 mb-4">
+				<cl-text :pt="{ className: '!text-sm text-surface-500' }">
+					• 咨询服务由专业导师提供一对一指导<br/>
+					• 购买后可在有效期内使用<br/>
+					• 支持支付宝扫码支付<br/>
+					• 如有问题请联系客服
+				</cl-text>
+			</view>
+
+			<!-- 购买按钮 -->
+			<cl-button 
+				type="primary" 
+				size="large" 
+				:disabled="selectedHours == null || selectedHours < 1"
+				@tap="createOrder"
+			>
+				立即购买 ¥{{ calculateTotalPrice(selectedHours) }}
+			</cl-button>
+		</view>
+		<!-- #ifdef APP -->
+		</scroll-view>
+		<!-- #endif -->
+
+		<!-- 支付二维码弹窗 -->
+		<cl-popup v-model="showQRModal" :pt="{ className: '!rounded-t-3xl' }">
+			<view class="w-full flex flex-col items-center p-6">
+				<view class="flex flex-col items-center text-center mb-4">
+					<cl-text :pt="{ className: '!text-lg font-bold' }">扫码支付</cl-text>
+					<cl-text color="info" :pt="{ className: '!text-sm mt-1' }">请使用支付宝扫描二维码</cl-text>
+				</view>
+				
+				<view class="flex justify-center mb-4">
+					<view class="relative">
+						<cl-qrcode 
+							:text="paymentUrl"
+							:width="'250px'"
+							:height="'250px'"
+							:foreground="'#000000'"
+							:background="'#FFFFFF'"
+							mode="circular"
+							ref="qrCodeRef"
+						></cl-qrcode>
+					</view>
+				</view>
+				
+				<view class="w-full flex flex-col items-center text-center mb-4">
+					<cl-text :pt="{ className: '!text-xl font-bold text-primary' }">¥{{ orderAmount }}</cl-text>
+					<cl-text color="info" :pt="{ className: '!text-sm mt-1' }">支付金额</cl-text>
+				</view>
+				
+				<view class="w-full flex flex-row gap-3">
+					<cl-button 
+						size="large" 
+						:pt="{ className: 'flex-1' }"
+						@tap="saveQRCode"
+					>
+						保存二维码
+					</cl-button>
+					<cl-button 
+						type="primary" 
+						size="large" 
+						:pt="{ className: 'flex-1' }"
+						@tap="confirmPayment"
+					>
+						已完成支付
+					</cl-button>
+				</view>
+			</view>
+		</cl-popup>
+	</cl-page>
+</template>
+
+<script lang="ts" setup>
+import { router, isDark, parseClass, user, dashboard } from "@/cool";
+import { ref, onMounted, nextTick } from "vue";
+import { useUi } from "@/uni_modules/cool-ui";
+import { t } from "@/locale";
+import { ConsultationService } from "@/cool/service/consultation";
+import type { ConsultationPriceConfig, CurrentOrder, CreateOrderRequest } from "@/types/habit";
+
+const ui = useUi();
+
+// 价格配置
+const priceConfig = ref<ConsultationPriceConfig | null>(null);
+
+// 选中的时长
+const selectedHours = ref<number>(1);
+
+// 二维码组件引用
+const qrCodeRef = ref<ClQrcodeComponentPublicInstance | null>(null);
+
+// 当前订单信息
+const currentOrder = ref<CurrentOrder | null>(null);
+
+// 计算总价格
+function calculateTotalPrice(hours: number): string {
+	if (hours == null || hours <= 0 || priceConfig.value == null) return '0.00';
+	const total = parseFloat(priceConfig.value.price_per_hour) * hours;
+	return total.toFixed(2);
+}
+
+// 支付二维码相关
+const showQRModal = ref(false);
+const paymentUrl = ref('');
+const orderAmount = ref('');
+
+// 显示支付二维码
+function showPaymentQR(url: string) {
+	paymentUrl.value = url;
+	orderAmount.value = calculateTotalPrice(selectedHours.value);
+	showQRModal.value = true;
+}
+
+// 创建订单
+async function createOrder() {
+	if (selectedHours.value == null || selectedHours.value < 1) {
+		ui.showToast({ message: '请输入有效的咨询时长' });
+		return;
+	}
+
+	try {
+		ui.showLoading('创建订单中...');
+		
+		const orderData: CreateOrderRequest = {
+			hours: selectedHours.value,
+			payment_method: 'alipay',
+			payment_channel: 'qr'
+		};
+
+		const response = await ConsultationService.createOrder(orderData);
+		
+		ui.hideLoading();
+		
+		// 保存当前订单信息
+		const orderResponse = response as UTSJSONObject;
+		if (orderResponse != null) {
+			const orderData = orderResponse["order"] as UTSJSONObject | null;
+			const paymentData = orderResponse["payment"] as UTSJSONObject | null;
+			if (orderData != null) {
+				const orderNo = orderData["order_no"] as string | null;
+				const amount = orderData["total_amount"] as string | null;
+				if (orderNo != null && amount != null) {
+					currentOrder.value = {
+						orderNo: orderNo,
+						amount: amount
+					} as CurrentOrder;
+				}
+			}
+			
+			// 显示支付二维码
+			if (paymentData != null) {
+				const paymentUrl = paymentData["payment_url"] as string | null;
+				if (paymentUrl != null && paymentUrl != "") {
+					showPaymentQR(paymentUrl);
+				}
+			}
+		}
+		
+	} catch (error: any) {
+		ui.hideLoading();
+		console.error('创建订单失败:', error);
+		const errObj = error as UTSJSONObject | null;
+		let errMsg: string | null | undefined = null;
+		if (errObj != null && errObj.hasOwnProperty("message")) {
+			errMsg = errObj["message"] as string | null | undefined;
+		}
+		const errorMessage: string = (errMsg != null && errMsg != "" ? errMsg : '创建订单失败，请重试') as string;
+		ui.showToast({ 
+			message: errorMessage
+		});
+	}
+}
+
+// 关闭二维码弹窗
+function closeQRModal() {
+	showQRModal.value = false;
+}
+
+// 确认支付完成
+async function confirmPayment() {
+	if (currentOrder.value == null) {
+		ui.showToast({ message: '订单信息不存在' });
+		return;
+	}
+
+	try {
+		ui.showLoading('验证支付状态...');
+		
+		// 检查支付状态
+		const paymentStatusData = await ConsultationService.checkPaymentStatus(currentOrder.value.orderNo);
+		const paymentStatus = paymentStatusData as UTSJSONObject;
+		
+		ui.hideLoading();
+		
+		const isPaid = paymentStatus != null && paymentStatus["is_paid"] === true;
+		if (isPaid) {
+			// 支付成功，更新用户信息和dashboard数据
+			try {
+				const promises: Array<Promise<any>> = [
+					user.get(), // 从服务端获取最新的用户信息
+					dashboard.getDashboard() // 更新dashboard数据（包含积分信息）
+				];
+				await Promise.all(promises);
+			} catch (error) {
+				console.error('更新用户信息失败:', error);
+				// 即使更新失败也不影响支付成功的流程
+			}
+			
+			closeQRModal();
+			ui.showToast({ message: '支付完成！' });
+			setTimeout(() => {
+				router.back();
+			}, 1500);
+		} else {
+			// 未支付
+			ui.showConfirm({
+				title: '支付未完成',
+				message: '检测到订单尚未支付完成，请先完成支付或点击右上角关闭按钮',
+				confirmText: '重新检查',
+				cancelText: '取消',
+				callback: (action) => {
+					if (action === 'confirm') {
+						// 重新检查支付状态
+						confirmPayment();
+					}
+				}
+			});
+		}
+		
+	} catch (error: any) {
+		ui.hideLoading();
+		console.error('检查支付状态失败:', error);
+		ui.showToast({ message: '检查支付状态失败，请重试' });
+	}
+}
+
+// 保存二维码到相册
+async function saveQRCode() {
+	try {
+		ui.showLoading('保存中...');
+		
+		// 等待二维码组件完全渲染
+		await new Promise<void>((resolve) => {
+			setTimeout(() => {
+				resolve();
+			}, 1000);
+		});
+
+		// 检查二维码组件引用是否存在
+		if (qrCodeRef.value == null) {
+			ui.hideLoading();
+			ui.showToast({ message: '二维码组件未准备好，请稍后再试' });
+			return;
+		}
+
+		// 将二维码转换为图片
+		const imagePath = await qrCodeRef.value.toPng();
+		
+		if (imagePath == null || imagePath == "") {
+			ui.hideLoading();
+			ui.showToast({ message: '二维码生成失败，请重试' });
+			return;
+		}
+		
+		// 保存到相册
+		// #ifdef APP
+		uni.saveImageToPhotosAlbum({
+			filePath: imagePath,
+			success: () => {
+				ui.hideLoading();
+				ui.showToast({ message: '二维码已保存到相册' });
+			},
+			fail: (error) => {
+				ui.hideLoading();
+				console.error('保存失败:', error);
+				ui.showToast({ message: '保存失败，请检查相册权限' });
+			}
+		});
+		// #endif
+		
+		// #ifdef H5
+		// H5平台下载图片
+		const link = document.createElement('a');
+		link.href = imagePath;
+		link.download = `payment-qrcode-${Date.now()}.png`;
+		document.body.appendChild(link);
+		link.click();
+		document.body.removeChild(link);
+		ui.hideLoading();
+		ui.showToast({ message: '二维码已下载' });
+		// #endif
+		
+		// #ifdef MP
+		// 小程序平台预览图片
+		uni.previewImage({
+			urls: [imagePath],
+			current: imagePath,
+			success: () => {
+				ui.hideLoading();
+				ui.showToast({ message: '请长按二维码保存到相册' });
+			},
+			fail: () => {
+				ui.hideLoading();
+				ui.showToast({ message: '预览失败' });
+			}
+		});
+		// #endif
+		
+	} catch (error) {
+		ui.hideLoading();
+		console.error('保存二维码失败:', error);
+		ui.showToast({ message: '保存失败，请重试' });
+	}
+}
+
+// 加载价格配置
+async function loadPriceConfig() {
+	try {
+		priceConfig.value = await ConsultationService.getPriceConfig();
+	} catch (error) {
+		console.error('加载价格配置失败:', error);
+		ui.showToast({ message: '加载价格配置失败' });
+	}
+}
+
+onMounted(() => {
+	loadPriceConfig();
+	// 默认选择1小时
+	selectedHours.value = 1;
+});
+</script>
+
+<style lang="scss" scoped>
+.container {
+	height: 100%;
+}
+</style>

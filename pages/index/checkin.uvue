@@ -1,0 +1,331 @@
+<template>
+	<cl-page>
+		<cl-topbar fixed :show-back="false" safe-area-top :height="isMp() ? null : 100">
+			<view class="flex flex-row items-center p-3 flex-1 w-full" :class="{ 'pt-0': isMp() }">
+				<cl-text color="primary" :pt="{ className: '!text-xl mr-auto flex-1' }">
+					自律
+				</cl-text>
+
+				<view class="bg-surface-500 h-8 w-8 rounded-full flex flex-row items-center justify-center mr-3" @tap="toAddTask">
+					<cl-icon name="add-line" color="white"></cl-icon>
+				</view>
+			</view>
+		</cl-topbar>
+
+		<!-- #ifdef APP -->
+		<scroll-view class="container" style="flex: 1">
+		<!-- #endif -->
+		<view class="p-3">
+
+			<!-- 任务列表 -->
+			<view class="mb-4">
+
+				<view v-if="myTasks == null || myTasks.length === 0" class="bg-surface-100 dark:!bg-surface-800 rounded-xl p-6 text-center">
+					<cl-icon name="task-line" :size="48" color="surface-400" :pt="{ className: 'dark:!text-surface-400' }"></cl-icon>
+					<cl-text color="surface-400" :pt="{ className: 'mt-2 dark:!text-surface-400' }">还没有任务，快去添加一个吧</cl-text>
+				</view>
+
+				<view v-else>
+					<view v-for="(task, index) in myTasks" :key="getTaskId(task, index)" class="bg-white dark:!bg-surface-800 rounded-xl p-4 mb-3" @tap="doCheckin(task)" @longpress="deleteTask(task)">
+						<view class="flex flex-row items-center">
+							<view class="w-3 h-3 rounded-full mr-3" :style="{ backgroundColor: getTaskStatusColor(task) }"></view>
+							<view class="flex-1">
+								<cl-text :pt="{ className: '!text-base font-bold' }">{{ getTaskTitle(task) }}
+									<cl-text :pt="{ className: '!text-xs mt-1' }" :color="getTaskStatusTextColor(getTaskStatus(task))">
+									{{ getTaskStatusText(getTaskStatus(task)) }}
+								</cl-text>
+								</cl-text>
+								<cl-text color="surface-400" :pt="{ className: '!text-sm mt-1 dark:!text-surface-400' }">
+									{{ getTaskFrequency(task) === 1 ? '每日一次' : '每周一次' }} {{ getTaskCompletedTimes(task) }}/{{ getTaskTotalTimes(task) }}
+								</cl-text>
+								<cl-text color="surface-400" :pt="{ className: '!text-sm mt-1 dark:!text-surface-400' }">
+									{{ getTaskDescription(task) }}
+								</cl-text>
+							</view>
+							<view class="flex flex-row items-center">
+								<cl-progress-circle 
+									:value="getTaskProgress(task)" 
+									:size="50" 
+									:stroke-width="6"
+									:color="getTaskStatusColor(task)"
+									:show-text="false"
+									:duration="300"
+								></cl-progress-circle>
+							</view>
+						</view>
+					</view>
+				</view>
+			</view>
+		</view>
+		<!-- #ifdef APP -->
+		</scroll-view>
+		<!-- #endif -->
+
+		<!-- 自定义底部导航栏 -->
+		<custom-tabbar></custom-tabbar>
+	</cl-page>
+</template>
+
+<script lang="ts" setup>
+import { isMp, router, useStore } from "@/cool";
+import { ref, computed, onMounted } from "vue";
+import { useUi } from "@/uni_modules/cool-ui";
+import CustomTabbar from "@/components/tabbar.uvue";
+
+const ui = useUi();
+const { user, task, checkin } = useStore();
+
+// 数据
+const todayCheckins = ref(0);
+
+// 使用store中的数据
+// 在Android平台上，数据实际是UTSJSONObject[]，使用any[]类型避免类型转换错误
+const myTasks = computed<any[]>(() => task.tasks.value as any[]);
+const recentCheckins = computed<any[]>(() => checkin.checkins.value as any[]);
+
+// 计算属性
+const totalTasks = computed(() => myTasks.value != null ? myTasks.value.length : 0);
+const todayProgress = computed(() => {
+  if (totalTasks.value === 0) return 0;
+  return (todayCheckins.value / totalTasks.value) * 100;
+});
+
+// 辅助函数：安全获取任务属性
+function getTaskId(task: any, index: number): number {
+	const taskObj = task as UTSJSONObject;
+	const id = taskObj["id"] as number | null;
+	return id != null ? id : index;
+}
+
+function getTaskStatus(task: any): number {
+	const taskObj = task as UTSJSONObject;
+	return (taskObj["status"] as number | null) ?? 1;
+}
+
+function getTaskHabitType(task: any): number {
+	const taskObj = task as UTSJSONObject;
+	return (taskObj["habit_type"] as number | null) ?? 1;
+}
+
+function getTaskTitle(task: any): string {
+	const taskObj = task as UTSJSONObject;
+	return (taskObj["title"] as string | null) ?? "";
+}
+
+function getTaskDescription(task: any): string {
+	const taskObj = task as UTSJSONObject;
+	return (taskObj["description"] as string | null) ?? "";
+}
+
+function getTaskFrequency(task: any): number {
+	const taskObj = task as UTSJSONObject;
+	return (taskObj["frequency"] as number | null) ?? 1;
+}
+
+function getTaskCompletedTimes(task: any): number {
+	const taskObj = task as UTSJSONObject;
+	return (taskObj["completed_times"] as number | null) ?? 0;
+}
+
+function getTaskTotalTimes(task: any): number {
+	const taskObj = task as UTSJSONObject;
+	return (taskObj["total_times"] as number | null) ?? 0;
+}
+
+// 方法
+function getTaskStatusColor(task: any): string {
+	const status = getTaskStatus(task);
+	// 如果任务失败，统一显示红色
+	if (status === 0) {
+		return '#e74c3c'; // 失败 - 红色
+	}
+	
+	// 根据habit_type显示不同颜色
+	const habitType = getTaskHabitType(task);
+	switch (habitType) {
+		case 1: return '#3498db'; // 戒 - 蓝色
+		case 2: return '#2ecc71'; // 行 - 绿色
+		default: return '#95a5a6'; // 默认 - 灰色
+	}
+}
+
+function getTaskStatusText(status: number): string {
+  switch (status) {
+    case 0: return '任务失败';
+    case 1: return '进行中';
+    case 2: return '任务成功';
+    default: return '未知状态';
+  }
+}
+
+function getTaskStatusTextColor(status: number): string {
+  switch (status) {
+    case 0: return 'error';
+    case 1: return 'warning';
+    case 2: return 'success';
+    default: return 'surface-400';
+  }
+}
+
+// 计算任务进度百分比
+function getTaskProgress(task: any): number {
+	const totalTimes = getTaskTotalTimes(task);
+	if (totalTimes === 0) return 0;
+	const completedTimes = getTaskCompletedTimes(task);
+	return Math.round((completedTimes / totalTimes) * 100);
+}
+
+function formatDate(dateStr: string): string {
+  const date = new Date(dateStr);
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  
+  if (date.toDateString() === today.toDateString()) {
+    return '今天';
+  } else if (date.toDateString() === yesterday.toDateString()) {
+    return '昨天';
+  } else {
+    return `${date.getMonth() + 1}/${date.getDate()}`;
+  }
+}
+
+// 页面跳转
+function toAddTask() {
+  router.to('/pages/task/add');
+}
+
+function toStats() {
+  router.to('/pages/stats/index');
+}
+
+function toTaskManage() {
+  router.to('/pages/task/manage');
+}
+
+// 加载数据
+async function loadData() {
+  try {
+    // 检查用户是否已登录
+    if (user.isNull()) {
+      console.log('用户未登录，跳转到登录页');
+      router.login();
+      return;
+    }
+
+    // 并行加载所有数据
+    await Promise.all([
+      task.getTasks(),
+      checkin.getCheckins()
+    ]);
+
+    // 计算今日打卡数
+    const today = new Date().toISOString().split('T')[0];
+    const filteredCheckins = recentCheckins.value != null ? recentCheckins.value.filter((c: any) => {
+		const checkinObj = c as UTSJSONObject;
+		const checkinDate = checkinObj["checkin_date"] as string | null;
+		return checkinDate === today;
+	}) : [];
+    todayCheckins.value = filteredCheckins.length;
+
+  } catch (error) {
+    console.error('加载数据失败:', error);
+    ui.showToast({
+      message: '加载数据失败'
+    });
+  }
+}
+
+// 辅助函数：获取打卡信息属性
+function getCheckinTaskId(checkin: any): number {
+	const checkinObj = checkin as UTSJSONObject;
+	return (checkinObj["task_id"] as number | null) ?? 0;
+}
+
+function getCheckinDate(checkin: any): string {
+	const checkinObj = checkin as UTSJSONObject;
+	return (checkinObj["checkin_date"] as string | null) ?? "";
+}
+
+// 直接签到
+async function doCheckin(task: any) {
+  try {
+	const taskId = getTaskId(task, 0);
+	const status = getTaskStatus(task);
+	
+    // 检查任务状态
+    if (status === 0) {
+      ui.showToast({ message: '任务已失败，无法签到' });
+      return;
+    }
+    
+    if (status === 2) {
+      ui.showToast({ message: '任务已完成，无需签到' });
+      return;
+    }
+
+    // 检查今日是否已签到
+    const today = new Date().toISOString().split('T')[0];
+    const checkinsList = recentCheckins.value != null ? recentCheckins.value : [];
+    const todayCheckin = checkinsList.find((c: any) => {
+		const checkinTaskId = getCheckinTaskId(c);
+		const checkinDate = getCheckinDate(c);
+		return checkinTaskId === taskId && checkinDate === today;
+	});
+    
+    if (todayCheckin != null) {
+      ui.showToast({ message: '今日已签到，无需重复签到' });
+      return;
+    }
+
+    // 执行签到
+    await checkin.createCheckin({
+      task_id: taskId,
+      checkin_date: today
+    });
+
+    ui.showToast({ message: '签到成功！' });
+    
+    // 重新加载数据
+    await loadData();
+    
+  } catch (error) {
+    console.error('签到失败:', error);
+    ui.showToast({ message: '签到失败，请重试' });
+  }
+}
+
+// 删除任务
+function deleteTask(taskItem: any) {
+	const taskId = getTaskId(taskItem, 0);
+	const title = getTaskTitle(taskItem);
+	
+  ui.showConfirm({
+    title: '删除任务',
+    message: `确定要删除任务"${title}"吗？删除后无法恢复。`,
+    callback: (action: string) => {
+      if (action === 'confirm') {
+        task.deleteTask(taskId).then(() => {
+          ui.showToast({ message: '任务删除成功' });
+          // 重新加载数据
+          loadData();
+        }).catch((error) => {
+          console.error('删除任务失败:', error);
+          ui.showToast({ message: '删除失败，请重试' });
+        });
+      }
+    }
+  });
+}
+
+onMounted(() => {
+  loadData();
+});
+</script>
+
+<style lang="scss" scoped>
+.container {
+  height: 100%;
+}
+</style>
+

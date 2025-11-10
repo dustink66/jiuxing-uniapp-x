@@ -1,0 +1,319 @@
+<template>
+	<cl-page>
+		<cl-topbar fixed :show-back="false" safe-area-top :height="isMp() ? null : 100">
+			<view class="flex flex-row items-center p-3 flex-1 w-full" :class="{ 'pt-0': isMp() }">
+				<cl-text color="primary" :pt="{ className: '!text-xl font-bold flex-1' }">
+					活动
+				</cl-text>
+
+				<view class="bg-primary-500 h-8 w-8 rounded-full flex flex-row items-center justify-center" :class="{ 'mr-24': isMp() }" @tap="toFilter">
+					<cl-icon name="filter-line" color="white"></cl-icon>
+				</view>
+			</view>
+		</cl-topbar>
+
+		<!-- #ifdef APP -->
+		<scroll-view class="container" style="flex: 1">
+		<!-- #endif -->
+		<view class="p-3">
+
+			<!-- 活动列表 -->
+			<view v-if="filteredActivities == null || filteredActivities.length === 0" class="bg-surface-100 dark:!bg-surface-800 rounded-xl p-6 flex flex-col items-center">
+				<cl-icon name="calendar-event-line" :size="48" color="surface-400"></cl-icon>
+				<cl-text color="surface-400" :pt="{ className: 'mt-2' }">暂无活动</cl-text>
+			</view>
+
+			<view v-else>
+				<view v-for="(activity, index) in filteredActivities" :key="getActivityId(activity, index)" class="bg-white dark:!bg-surface-800 rounded-xl mb-4 overflow-hidden" @tap="toActivityDetail(getActivityId(activity, index))">
+					<!-- 活动封面 -->
+					<cl-image 
+						:src="getActivityCoverImage(activity)" 
+						:width="750" 
+						:height="300"
+						:pt="{ className: '!w-full' }"
+					></cl-image>
+					
+					<view class="p-4">
+						<!-- 活动标题 -->
+						<view class="flex flex-row items-center justify-between mb-2">
+							<cl-text :pt="{ className: '!text-lg font-bold' }">{{ getActivityTitle(activity) }}</cl-text>
+						</view>
+
+						<!-- 活动描述 -->
+						<cl-text color="surface-400" :pt="{ className: '!text-sm mb-3 dark:!text-surface-400' }" :lines="2">
+							{{ getActivityDescription(activity) }}
+						</cl-text>
+
+						<!-- 活动时间 -->
+						<view class="flex flex-row items-center mb-2">
+							<cl-icon name="time-line" :size="24" color="surface-400" :pt="{ className: 'dark:!text-surface-400' }"></cl-icon>
+							<cl-text color="surface-400" :pt="{ className: '!text-sm ml-1 dark:!text-surface-400' }">
+								{{ formatDateTime(getActivityStartTime(activity)) }} - {{ formatDateTime(getActivityEndTime(activity)) }}
+							</cl-text>
+						</view>
+
+						<!-- 活动地址 -->
+						<view v-if="getActivityAddress(activity) != null && getActivityAddress(activity) != ''" class="flex flex-row items-center mb-3">
+							<cl-icon name="map-pin-line" :size="24" color="surface-400" :pt="{ className: 'dark:!text-surface-400' }"></cl-icon>
+							<cl-text color="surface-400" :pt="{ className: '!text-sm ml-1 dark:!text-surface-400' }">{{ getActivityAddress(activity) }}</cl-text>
+						</view>
+
+						<!-- 参与条件 -->
+						<view class="flex flex-row items-center justify-between mb-3">
+							<view class="flex flex-row items-center">
+								<cl-icon name="star-line" :size="24" color="surface-400" :pt="{ className: 'dark:!text-surface-400' }"></cl-icon>
+								<cl-text color="surface-400" :pt="{ className: '!text-sm ml-1 dark:!text-surface-400' }">需要{{ getActivityMinIntegral(activity) }}积分
+								</cl-text>
+							</view>
+							<view class="flex flex-row items-center">
+								<cl-icon name="user-line" :size="24" color="surface-400" :pt="{ className: 'dark:!text-surface-400' }"></cl-icon>
+								<cl-text color="surface-400" :pt="{ className: '!text-sm ml-1 dark:!text-surface-400' }">
+									{{ getActivityCurrentParticipants(activity) }}/{{ getActivityMaxParticipants(activity) }}
+								</cl-text>
+							</view>
+						</view>
+
+						<!-- 活动状态 -->
+						<view class="flex flex-row items-center justify-between">
+							<cl-text :pt="{ className: '!text-sm' }" :color="getActivityStatusColor(activity)">
+								{{ getActivityStatusText(activity) }}
+							</cl-text>
+							<cl-button 
+								:type="getButtonType(activity)" 
+								size="small"
+								:disabled="!canJoin(activity)"
+								@tap.stop="joinActivity(activity)"
+							>
+								{{ getButtonText(activity) }}
+							</cl-button>
+						</view>
+					</view>
+				</view>
+			</view>
+		</view>
+		<!-- #ifdef APP -->
+		</scroll-view>
+		<!-- #endif -->
+
+		<!-- 自定义底部导航栏 -->
+		<custom-tabbar></custom-tabbar>
+	</cl-page>
+</template>
+
+<script lang="ts" setup>
+import { isMp, router, useStore } from "@/cool";
+import { computed, onMounted } from "vue";
+import { useUi } from "@/uni_modules/cool-ui";
+import type { ActivityInfo } from "@/types/habit";
+import CustomTabbar from "@/components/tabbar.uvue";
+
+const ui = useUi();
+const { activity } = useStore();
+const activityStore = activity;
+
+// 使用store中的数据
+// 在Android平台上，数据实际是UTSJSONObject[]，使用类型断言避免类型转换错误
+const activities = computed<any[]>(() => activityStore.activities.value as any[]);
+
+// 计算属性
+const filteredActivities = computed<any[]>(() => {
+	if (activities.value == null || activities.value.length === 0) return [];
+	// 在安卓平台上，直接返回数据，不进行类型转换
+	return activities.value;
+});
+
+// 辅助函数：安全访问活动对象属性
+function getActivityId(activity: any, index: number): number {
+	const act = activity as UTSJSONObject;
+	const id = act["id"] as number | null;
+	return id != null ? id : index;
+}
+
+function getActivityTitle(activity: any): string {
+	const act = activity as UTSJSONObject;
+	return (act["title"] as string | null) ?? "";
+}
+
+function getActivityDescription(activity: any): string {
+	const act = activity as UTSJSONObject;
+	return (act["description"] as string | null) ?? "";
+}
+
+function getActivityCoverImage(activity: any): string {
+	const act = activity as UTSJSONObject;
+	return (act["cover_image"] as string | null) ?? "";
+}
+
+function getActivityStartTime(activity: any): string {
+	const act = activity as UTSJSONObject;
+	return (act["start_time"] as string | null) ?? "";
+}
+
+function getActivityEndTime(activity: any): string {
+	const act = activity as UTSJSONObject;
+	return (act["end_time"] as string | null) ?? "";
+}
+
+function getActivityAddress(activity: any): string {
+	const act = activity as UTSJSONObject;
+	return (act["address"] as string | null) ?? "";
+}
+
+function getActivityMinIntegral(activity: any): number {
+	const act = activity as UTSJSONObject;
+	return (act["min_integral"] as number | null) ?? 0;
+}
+
+function getActivityCurrentParticipants(activity: any): number {
+	const act = activity as UTSJSONObject;
+	return (act["current_participants"] as number | null) ?? 0;
+}
+
+function getActivityMaxParticipants(activity: any): number {
+	const act = activity as UTSJSONObject;
+	return (act["max_participants"] as number | null) ?? 0;
+}
+
+// 方法
+function formatDateTime(dateStr: string): string {
+  const date = new Date(dateStr);
+  return `${date.getMonth() + 1}/${date.getDate()} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+}
+
+function getActivityStatusColor(activity: any): string {
+  const now = new Date();
+  const startTimeStr = getActivityStartTime(activity);
+  const endTimeStr = getActivityEndTime(activity);
+  if (startTimeStr == "" || endTimeStr == "") return 'surface-400';
+  
+  const startTime = new Date(startTimeStr);
+  const endTime = new Date(endTimeStr);
+  
+  if (now < startTime) return 'primary';
+  if (now >= startTime && now <= endTime) return 'success';
+  return 'surface-400';
+}
+
+function getActivityStatusText(activity: any): string {
+  const now = new Date();
+  const startTimeStr = getActivityStartTime(activity);
+  const endTimeStr = getActivityEndTime(activity);
+  if (startTimeStr == "" || endTimeStr == "") return '未知';
+  
+  const startTime = new Date(startTimeStr);
+  const endTime = new Date(endTimeStr);
+  
+  if (now < startTime) return '未开始';
+  if (now >= startTime && now <= endTime) return '进行中';
+  return '已结束';
+}
+
+function getButtonType(activity: any): 'primary' | 'success' | 'info' {
+  const now = new Date();
+  const startTimeStr = getActivityStartTime(activity);
+  const endTimeStr = getActivityEndTime(activity);
+  if (startTimeStr == "" || endTimeStr == "") return 'info';
+  
+  const startTime = new Date(startTimeStr);
+  const endTime = new Date(endTimeStr);
+  
+  if (now < startTime) return 'primary';
+  if (now >= startTime && now <= endTime) return 'success';
+  return 'info';
+}
+
+function getButtonText(activity: any): string {
+  const now = new Date();
+  const startTimeStr = getActivityStartTime(activity);
+  const endTimeStr = getActivityEndTime(activity);
+  if (startTimeStr == "" || endTimeStr == "") return '已结束';
+  
+  const startTime = new Date(startTimeStr);
+  const endTime = new Date(endTimeStr);
+  
+  if (now < startTime) return '报名';
+  if (now >= startTime && now <= endTime) return '签到';
+  return '已结束';
+}
+
+function canJoin(activity: any): boolean {
+  const now = new Date();
+  const endTimeStr = getActivityEndTime(activity);
+  if (endTimeStr == "") return false;
+  
+  const endTime = new Date(endTimeStr);
+  const currentParticipants = getActivityCurrentParticipants(activity);
+  const maxParticipants = getActivityMaxParticipants(activity);
+  
+  return now <= endTime && currentParticipants < maxParticipants;
+}
+
+// 页面跳转
+function toFilter() {
+  // 实现筛选功能
+  ui.showToast({
+    message: '筛选功能开发中'
+  });
+}
+
+function toActivityDetail(id: number) {
+  router.to(`/pages/activity/detail?id=${id}`);
+}
+
+// 参与活动
+async function joinActivity(activity: any) {
+  try {
+    const activityId = getActivityId(activity, 0);
+    const now = new Date();
+    const startTimeStr = getActivityStartTime(activity);
+    if (startTimeStr == "") {
+      ui.showToast({ message: '活动信息不完整' });
+      return;
+    }
+    
+    const startTime = new Date(startTimeStr);
+    
+    if (now < startTime) {
+      // 报名活动
+      await activityStore.registerActivity(activityId);
+      ui.showToast({
+        message: '报名成功'
+      });
+    } else {
+      // 活动签到
+      await activityStore.checkinActivity(activityId);
+      ui.showToast({
+        message: '签到成功'
+      });
+    }
+  } catch (error) {
+    console.error('操作失败:', error);
+    ui.showToast({
+      message: '操作失败'
+    });
+  }
+}
+
+
+// 加载数据
+async function loadData() {
+  try {
+    await activityStore.getActivities();
+  } catch (error) {
+    console.error('加载数据失败:', error);
+    ui.showToast({
+      message: '加载数据失败'
+    });
+  }
+}
+
+onMounted(() => {
+  loadData();
+});
+</script>
+
+<style lang="scss" scoped>
+.container {
+  height: 100%;
+}
+</style>

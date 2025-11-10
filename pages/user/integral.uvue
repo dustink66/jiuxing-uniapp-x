@@ -1,0 +1,178 @@
+<template>
+	<cl-page>
+
+		<!-- #ifdef APP -->
+		<scroll-view class="container" style="flex: 1">
+		<!-- #endif -->
+		<view class="p-3">
+
+			<!-- 积分记录列表 -->
+			<view class="mb-4">
+				<view v-if="integralHistory.length === 0" class="bg-white dark:!bg-surface-800 rounded-xl p-6 text-center">
+					<cl-icon name="trophy-line" :size="48" color="surface-400"></cl-icon>
+					<cl-text color="surface-400" :pt="{ className: 'mt-2' }">暂无积分记录</cl-text>
+				</view>
+				
+				<view v-else>
+					<view v-for="record in integralHistory" :key="record.id" class="bg-white dark:!bg-surface-800 rounded-xl p-4 mb-3">
+						<view class="flex flex-row items-center justify-between">
+							<view class="flex flex-row items-center flex-1">
+								<view class="w-10 h-10 rounded-full flex items-center justify-center mr-3"
+									:class="record.change_amount > 0 ? 'bg-success-100' : 'bg-error-100'">
+									<cl-icon 
+										:name="record.change_amount > 0 ? 'add-line' : 'subtract-line'" 
+										:color="record.change_amount > 0 ? 'success' : 'error'"
+										:size="20"
+									></cl-icon>
+								</view>
+								<view class="flex-1">
+									<cl-text :pt="{ className: '!text-base font-bold' }">{{ record.description }}</cl-text>
+									<cl-text color="surface-400" :pt="{ className: '!text-sm mt-1' }">{{ formatDate(record.created_at) }}</cl-text>
+								</view>
+							</view>
+							<view class="flex flex-col items-end">
+								<cl-text 
+									:pt="{ className: '!text-lg font-bold' }"
+									:color="record.change_amount > 0 ? 'success' : 'error'"
+								>
+									{{ record.change_amount > 0 ? '+' : '' }}{{ record.change_amount }}
+								</cl-text>
+								<cl-text color="surface-400" :pt="{ className: '!text-sm' }">
+									余额: {{ record.current_integral }}
+								</cl-text>
+							</view>
+						</view>
+					</view>
+				</view>
+			</view>
+
+			<!-- 加载更多 -->
+			<view v-if="hasMore" class="text-center py-4">
+				<cl-button 
+					v-if="!loading" 
+					type="info" 
+					size="small" 
+					@tap="loadMore"
+				>
+					加载更多
+				</cl-button>
+				<cl-text v-else color="info" :pt="{ className: '!text-sm' }">加载中...</cl-text>
+			</view>
+		</view>
+		<!-- #ifdef APP -->
+		</scroll-view>
+		<!-- #endif -->
+	</cl-page>
+</template>
+
+<script lang="ts" setup>
+import { router } from "@/cool";
+import { ref, onMounted } from "vue";
+import { useUi } from "@/uni_modules/cool-ui";
+import { IntegralService } from "@/cool/service/integral";
+import type { IntegralRecord, IntegralStats } from "@/types/habit";
+
+const ui = useUi();
+
+// 数据
+const integralHistory = ref<IntegralRecord[]>([]);
+const integralStats = ref<IntegralStats | null>(null);
+const loading = ref(false);
+const hasMore = ref(true);
+const currentPage = ref(1);
+
+// 方法
+function goBack() {
+	router.back();
+}
+
+function formatDate(dateStr: string): string {
+	const date = new Date(dateStr);
+	const now = new Date();
+	const diff = now.getTime() - date.getTime();
+	const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+	
+	if (days === 0) {
+		const hours = date.getHours();
+		const minutes = date.getMinutes();
+		const hourStr = hours < 10 ? '0' + hours : hours.toString();
+		const minuteStr = minutes < 10 ? '0' + minutes : minutes.toString();
+		return '今天 ' + hourStr + ':' + minuteStr;
+	} else if (days === 1) {
+		const hours = date.getHours();
+		const minutes = date.getMinutes();
+		const hourStr = hours < 10 ? '0' + hours : hours.toString();
+		const minuteStr = minutes < 10 ? '0' + minutes : minutes.toString();
+		return '昨天 ' + hourStr + ':' + minuteStr;
+	} else if (days < 7) {
+		return `${days}天前`;
+	} else {
+		const month = date.getMonth() + 1;
+		const day = date.getDate();
+		const monthStr = month < 10 ? '0' + month : month.toString();
+		const dayStr = day < 10 ? '0' + day : day.toString();
+		return monthStr + '/' + dayStr;
+	}
+}
+
+// 加载积分记录
+async function loadIntegralHistory(page: number = 1) {
+	try {
+		loading.value = true;
+		const result = await IntegralService.getIntegralHistory(page);
+		
+		if (page === 1) {
+			integralHistory.value = result.data != null ? result.data : [];
+		} else {
+			if (result.data != null) {
+				integralHistory.value.push(...result.data);
+			}
+		}
+		
+		// 检查是否还有更多数据
+		hasMore.value = result.data != null && result.data.length >= 20;
+		currentPage.value = page;
+	} catch (error) {
+		console.error('加载积分记录失败:', error);
+		ui.showToast({ message: '加载积分记录失败' });
+	} finally {
+		loading.value = false;
+	}
+}
+
+// 加载更多
+function loadMore() {
+	if (loading.value != true && hasMore.value == true) {
+		loadIntegralHistory(currentPage.value + 1);
+	}
+}
+
+// 加载积分统计
+async function loadIntegralStats() {
+	try {
+		const stats = await IntegralService.getIntegralStats();
+		integralStats.value = stats;
+	} catch (error) {
+		console.error('加载积分统计失败:', error);
+	}
+}
+
+// 加载数据
+async function loadData() {
+	const promises: Array<Promise<void>> = [
+		loadIntegralStats(),
+		loadIntegralHistory(1)
+	];
+	await Promise.all(promises);
+}
+
+onMounted(() => {
+	loadData();
+});
+</script>
+
+<style lang="scss" scoped>
+.container {
+	height: 100%;
+}
+</style>

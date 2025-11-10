@@ -1,0 +1,533 @@
+<template>
+	<cl-page>
+		<!-- #ifdef APP -->
+		<scroll-view class="container" style="flex: 1">
+		<!-- #endif -->
+		<view class="p-3">
+			<!-- 导师资料管理 -->
+			<view class="mb-4">
+				<view class="bg-white dark:!bg-surface-800 rounded-xl p-4 mb-3" @tap="toMentorProfile">
+					<view class="flex flex-row items-center">
+						<cl-icon name="user-settings-line" :size="50" color="primary"></cl-icon>
+						<view class="ml-3 flex-1">
+							<cl-text :pt="{ className: '!text-base font-bold' }">导师资料管理</cl-text>
+							<cl-text color="surface-400" :pt="{ className: '!text-sm mt-1' }">编辑导师简介、积分要求和招收数量</cl-text>
+						</view>
+					</view>
+				</view>
+			</view>
+
+			<!-- 我的学员列表 -->
+			<view class="mb-4">
+				<view class="mb-3">
+					<cl-input
+						v-model="searchKeyword"
+						:placeholder="'搜索学员名称...'"
+						prefix-icon="search-line"
+						:border="false"
+						:pt="{
+							className: parseClass([
+								'w-full',
+								[isDark, '!bg-surface-70', '!bg-white']
+							])
+						}"
+						@input="onSearch"
+					></cl-input>
+				</view>
+				
+				<view v-if="filteredStudents.length === 0" class="bg-surface-100 dark:!bg-surface-800 rounded-xl p-6 text-center">
+					<cl-icon name="user-line" :size="48" color="surface-400"></cl-icon>
+					<cl-text color="surface-400" :pt="{ className: 'mt-2' }">
+						{{ searchKeyword.trim() != "" ? '未找到匹配的学员' : '暂无学员' }}
+					</cl-text>
+					<cl-text color="surface-400" :pt="{ className: '!text-sm mt-1' }">
+						{{ searchKeyword.trim() != "" ? '请尝试其他关键词' : '等待学员申请绑定' }}
+					</cl-text>
+				</view>
+				
+				<view v-else>
+					<view v-for="student in filteredStudents" :key="student.id" 
+						class="bg-white dark:!bg-surface-800 rounded-xl p-4 mb-3" 
+						@tap="showStudentDetail(student)">
+						<view class="flex flex-row items-center">
+							<cl-avatar :src="student.avatar" :size="60" :pt="{ className: '!rounded-full' }"></cl-avatar>
+							<view class="ml-3 flex-1">
+								<cl-text :pt="{ className: '!text-lg font-bold' }">{{ student.nickname }}</cl-text>
+								<cl-text color="surface-400" :pt="{ className: '!text-sm mt-1' }">{{ student.level_name }}</cl-text>
+							</view>
+							<view class="flex flex-col items-end">
+								<cl-tag :type="getStatusType(student.status) as any" size="small">
+									{{ getStatusText(student.status) }}
+								</cl-tag>
+								<cl-text color="surface-400" :pt="{ className: '!text-xs mt-1' }">
+									{{ formatDate(student.bind_time) }}
+								</cl-text>
+							</view>
+						</view>
+					</view>
+				</view>
+			</view>
+		</view>
+		<!-- #ifdef APP -->
+		</scroll-view>
+		<!-- #endif -->
+
+		<!-- 学员详情弹窗 -->
+		<cl-popup v-model="showDetailModal" :pt="{ className: '!rounded-t-3xl' }">
+			<view class="w-full flex flex-col p-6">
+				<view class="text-center mb-6">
+					<cl-text :pt="{ className: '!text-xl font-bold' }">学员详情</cl-text>
+				</view>
+
+				<view v-if="selectedStudentValue != null" class="bg-white dark:!bg-surface-800 rounded-xl p-4 mb-6">
+					<!-- 学员基本信息 -->
+					<view class="flex flex-row items-start mb-4">
+						<cl-avatar :src="getSelectedStudentAvatar()" :size="80" :pt="{ className: '!rounded-full' }"></cl-avatar>
+						<view class="ml-3 flex-1">
+							<view class="flex flex-row items-center mb-2">
+								<cl-text :pt="{ className: '!text-lg font-bold' }">{{ getSelectedStudentNickname() }}</cl-text>
+								<cl-text color="primary" :pt="{ className: '!text-sm ml-2' }">{{ getSelectedStudentLevelName() }}</cl-text>
+							</view>
+							<view class="flex flex-row items-center gap-3 flex-wrap">
+								<view v-if="getSelectedStudentPhone() != ''" class="flex flex-row items-center">
+									<cl-icon name="phone-line" :size="20" color="surface-400"></cl-icon>
+									<cl-text color="surface-400" :pt="{ className: '!text-xs ml-1' }">{{ getSelectedStudentPhone() }}</cl-text>
+								</view>
+								<view v-if="getSelectedStudentGender() != null" class="flex flex-row items-center">
+									<cl-icon name="user-line" :size="20" color="surface-400"></cl-icon>
+									<cl-text color="surface-400" :pt="{ className: '!text-xs ml-1' }">
+										{{ getSelectedStudentGender() === 1 ? '男' : getSelectedStudentGender() === 2 ? '女' : '未知' }}
+									</cl-text>
+								</view>
+								<view v-if="getSelectedStudentAge() != null" class="flex flex-row items-center">
+									<cl-icon name="calendar-line" :size="20" color="surface-400"></cl-icon>
+									<cl-text color="surface-400" :pt="{ className: '!text-xs ml-1' }">{{ getSelectedStudentAge() }}岁</cl-text>
+								</view>
+								<view v-if="getSelectedStudentCity() != ''" class="flex flex-row items-center">
+									<cl-icon name="map-pin-line" :size="20" color="surface-400"></cl-icon>
+									<cl-text color="surface-400" :pt="{ className: '!text-xs ml-1' }">{{ getSelectedStudentCity() }}</cl-text>
+								</view>
+								<view v-if="getSelectedStudentWorkplace() != ''" class="flex flex-row items-center">
+									<cl-icon name="briefcase-line" :size="20" color="surface-400"></cl-icon>
+									<cl-text color="surface-400" :pt="{ className: '!text-xs ml-1' }">{{ getSelectedStudentWorkplace() }}</cl-text>
+								</view>
+							</view>
+						</view>
+					</view>
+					
+					<!-- 学员数据统计 -->
+					<view class="flex flex-row items-center justify-between">
+						<view class="flex flex-row items-center">
+							<cl-icon name="star-line" :size="24" color="primary"></cl-icon>
+							<cl-text color="primary" :pt="{ className: '!text-sm ml-1' }">
+								积分 {{ getSelectedStudentIntegral() }}
+							</cl-text>
+						</view>
+						<view class="flex flex-row items-center">
+							<cl-icon name="time-line" :size="24" :color="getStatusColor(getSelectedStudentStatus())"></cl-icon>
+							<cl-text :color="getStatusColor(getSelectedStudentStatus())" :pt="{ className: '!text-sm ml-1' }">
+								{{ getStatusText(getSelectedStudentStatus()) }}
+							</cl-text>
+						</view>
+					</view>
+				</view>
+
+				<!-- 时间信息 -->
+				<view v-if="selectedStudentValue != null" class="bg-white dark:!bg-surface-800 rounded-xl p-4 mb-6">
+					<cl-text :pt="{ className: '!text-base font-bold mb-3' }">时间信息</cl-text>
+					<view class="space-y-3">
+						<view class="flex flex-row items-center">
+							<cl-icon name="calendar-event-line" :size="20" color="surface-400"></cl-icon>
+							<cl-text color="surface-400" :pt="{ className: '!text-sm ml-2' }">绑定时间</cl-text>
+							<cl-text :pt="{ className: '!text-sm ml-auto' }">{{ getSelectedStudentBindTime() != '' ? formatDate(getSelectedStudentBindTime()) : '' }}</cl-text>
+						</view>
+						<view v-if="getSelectedStudentGraduateTime() != ''" class="flex flex-row items-center">
+							<cl-icon name="graduation-cap-line" :size="20" color="surface-400"></cl-icon>
+							<cl-text color="surface-400" :pt="{ className: '!text-sm ml-2' }">毕业时间</cl-text>
+							<cl-text :pt="{ className: '!text-sm ml-auto' }">{{ formatDate(getSelectedStudentGraduateTime()) }}</cl-text>
+						</view>
+					</view>
+				</view>
+
+				<!-- 个人简介 -->
+				<view v-if="getSelectedStudentDescription() != ''" class="bg-white dark:!bg-surface-800 rounded-xl p-4 mb-6">
+					<cl-text :pt="{ className: '!text-base font-bold mb-3' }">个人简介</cl-text>
+					<cl-text :pt="{ className: '!text-sm leading-relaxed' }">{{ getSelectedStudentDescription() }}</cl-text>
+				</view>
+
+				<view class="w-full flex flex-row gap-3">
+					<cl-button
+						size="large"
+						:pt="{ className: 'flex-1' }"
+						@tap="handleUnbindStudent"
+					>
+						解绑
+					</cl-button>
+					<cl-button
+						v-if="selectedStudent != null && selectedStudent.status === 0"
+						type="primary"
+						size="large"
+						:pt="{ className: 'flex-1' }"
+						@tap="handleApproveBinding"
+					>
+						通过
+					</cl-button>
+					<cl-button
+						v-if="selectedStudent != null && selectedStudent.status === 1"
+						type="success"
+						size="large"
+						:pt="{ className: 'flex-1' }"
+						@tap="handleApproveStudent"
+					>
+						认可
+					</cl-button>
+					<cl-button
+						v-if="selectedStudent != null && selectedStudent.status === 2"
+						type="success"
+						size="large"
+						:pt="{ className: 'flex-1' }"
+						@tap="handleGraduateStudent"
+					>
+						毕业
+					</cl-button>
+				</view>
+			</view>
+		</cl-popup>
+	</cl-page>
+</template>
+
+<script lang="ts" setup>
+import { router, useStore, isDark, parseClass } from "@/cool";
+import { ref, onMounted, computed } from "vue";
+import { useUi } from "@/uni_modules/cool-ui";
+import { MentorService } from "@/cool/service/mentor";
+import type { StudentInfo } from "@/types/habit";
+
+const ui = useUi();
+const { user } = useStore();
+
+// 数据
+const students = ref<StudentInfo[]>([]);
+const loading = ref(false);
+const searchKeyword = ref('');
+const showDetailModal = ref(false);
+const selectedStudent = ref<StudentInfo | null>(null);
+
+// 使用 computed 避免 Smart cast 问题
+const selectedStudentValue = computed<StudentInfo | null>(() => selectedStudent.value);
+
+// 计算属性
+const isMentor = computed(() => user.info.value?.is_mentor === true);
+
+// 过滤后的学员列表
+const filteredStudents = computed<StudentInfo[]>(() => {
+	if (searchKeyword.value == null || searchKeyword.value.trim() == "") {
+		return students.value;
+	}
+	const keyword = searchKeyword.value.toLowerCase();
+	return students.value.filter(student => 
+		student.nickname != null && student.nickname.toLowerCase().includes(keyword)
+	);
+});
+
+// 方法
+function onSearch() {
+	// 搜索逻辑已在computed中处理
+}
+
+function showStudentDetail(student: StudentInfo) {
+	selectedStudent.value = student;
+	showDetailModal.value = true;
+}
+
+function closeDetailModal() {
+	showDetailModal.value = false;
+	selectedStudent.value = null;
+}
+
+function goBack() {
+	router.back();
+}
+
+function toMentorProfile() {
+	router.push({
+		path: '/pages/mentor/profile'
+	});
+}
+
+// 辅助函数：安全获取学员属性
+function getSelectedStudentAvatar(): string {
+	const s = selectedStudentValue.value;
+	return s != null && s.avatar != null ? s.avatar : '';
+}
+
+function getSelectedStudentNickname(): string {
+	const s = selectedStudentValue.value;
+	return s != null && s.nickname != null ? s.nickname : '';
+}
+
+function getSelectedStudentLevelName(): string {
+	const s = selectedStudentValue.value;
+	return s != null && s.level_name != null ? s.level_name : '';
+}
+
+function getSelectedStudentPhone(): string {
+	const s = selectedStudentValue.value;
+	return s != null && s.phone != null ? s.phone : '';
+}
+
+function getSelectedStudentGender(): number | null {
+	const s = selectedStudentValue.value;
+	return s != null ? s.gender : null;
+}
+
+function getSelectedStudentAge(): number | null {
+	const s = selectedStudentValue.value;
+	return s != null ? s.age : null;
+}
+
+function getSelectedStudentCity(): string {
+	const s = selectedStudentValue.value;
+	return s != null && s.city != null ? s.city : '';
+}
+
+function getSelectedStudentWorkplace(): string {
+	const s = selectedStudentValue.value;
+	return s != null && s.workplace != null ? s.workplace : '';
+}
+
+function getSelectedStudentIntegral(): number {
+	const s = selectedStudentValue.value;
+	return s != null && s.integral != null ? s.integral : 0;
+}
+
+function getSelectedStudentStatus(): number {
+	const s = selectedStudentValue.value;
+	return s != null ? s.status : 0;
+}
+
+function getSelectedStudentBindTime(): string {
+	const s = selectedStudentValue.value;
+	return s != null && s.bind_time != null ? s.bind_time : '';
+}
+
+function getSelectedStudentGraduateTime(): string {
+	const s = selectedStudentValue.value;
+	return s != null && s.graduate_time != null ? s.graduate_time : '';
+}
+
+function getSelectedStudentDescription(): string {
+	const s = selectedStudentValue.value;
+	return s != null && s.description != null && s.description != "" ? s.description : '';
+}
+
+function formatDate(dateStr: string): string {
+	const date = new Date(dateStr);
+	return `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}`;
+}
+
+// 获取状态文本
+function getStatusText(status: number): string {
+	switch (status) {
+		case 0:
+			return '申请中';
+		case 1:
+			return '学习中';
+		case 2:
+			return '已认可';
+		case 3:
+			return '已毕业';
+		default:
+			return '未知状态';
+	}
+}
+
+// 获取状态标签类型
+function getStatusType(status: number): string {
+	switch (status) {
+		case 0:
+			return 'warning'; // 申请中 - 黄色
+		case 1:
+			return 'primary'; // 学习中 - 蓝色
+		case 2:
+			return 'success'; // 已认可 - 绿色
+		case 3:
+			return 'info'; // 已毕业 - 灰色
+		default:
+			return 'info';
+	}
+}
+
+// 获取状态颜色
+function getStatusColor(status: number): string {
+	switch (status) {
+		case 0:
+			return 'warning'; // 申请中 - 黄色
+		case 1:
+			return 'primary'; // 学习中 - 蓝色
+		case 2:
+			return 'success'; // 已认可 - 绿色
+		case 3:
+			return 'surface-400'; // 已毕业 - 灰色
+		default:
+			return 'surface-400';
+	}
+}
+
+// 加载数据
+async function loadData() {
+	try {
+		loading.value = true;
+
+		// 加载学员列表
+		try {
+			const list = await MentorService.getMyStudents();
+			students.value = Array.isArray(list) ? list : [];
+		} catch (error) {
+			console.error('加载学员列表失败:', error);
+			students.value = [];
+		}
+
+	} catch (error) {
+		console.error('加载数据失败:', error);
+		ui.showToast({
+			message: '加载数据失败'
+		});
+	} finally {
+		loading.value = false;
+	}
+}
+
+function graduateStudent(studentId: number) {
+	ui.showConfirm({
+		title: '确认毕业',
+		message: '确定要让该学员毕业吗？',
+		callback: (action: string) => {
+			if (action === 'confirm') {
+				MentorService.graduateStudent(studentId).then(() => {
+					ui.showToast({ message: '学员毕业成功' });
+					loadData();
+					// 如果当前弹窗显示的是被毕业的学员，关闭弹窗
+					if (selectedStudent.value != null && selectedStudent.value.id === studentId) {
+						closeDetailModal();
+					}
+				}).catch((error) => {
+					console.error('毕业操作失败:', error);
+					ui.showToast({ message: '操作失败' });
+				});
+			}
+		}
+	});
+}
+
+function approveBinding(studentId: number) {
+	ui.showConfirm({
+		title: '确认通过',
+		message: '确定要通过该学员的绑定申请吗？',
+		callback: (action: string) => {
+			if (action === 'confirm') {
+				MentorService.approveBinding(studentId).then(() => {
+					ui.showToast({ message: '通过申请成功' });
+					loadData();
+					// 如果当前弹窗显示的是被审核的学员，关闭弹窗
+					if (selectedStudent.value != null && selectedStudent.value.id === studentId) {
+						closeDetailModal();
+					}
+				}).catch((error) => {
+					console.error('通过申请操作失败:', error);
+					ui.showToast({ message: '操作失败' });
+				});
+			}
+		}
+	});
+}
+
+function approveStudent(studentId: number) {
+	ui.showConfirm({
+		title: '确认认可',
+		message: '确定要认可该学员吗？',
+		callback: (action: string) => {
+			if (action === 'confirm') {
+				MentorService.approveStudent(studentId).then(() => {
+					ui.showToast({ message: '认可学员成功' });
+					loadData();
+					// 如果当前弹窗显示的是被认可的学员，关闭弹窗
+					if (selectedStudent.value != null && selectedStudent.value.id === studentId) {
+						closeDetailModal();
+					}
+				}).catch((error) => {
+					console.error('认可操作失败:', error);
+					ui.showToast({ message: '操作失败' });
+				});
+			}
+		}
+	});
+}
+
+function unbindStudent(studentId: number) {
+	ui.showConfirm({
+		title: '确认解绑',
+		message: '确定要解绑该学员吗？',
+		callback: (action: string) => {
+			if (action === 'confirm') {
+				MentorService.unbindStudent(studentId).then(() => {
+					ui.showToast({ message: '解绑成功' });
+					loadData();
+					// 如果当前弹窗显示的是被解绑的学员，关闭弹窗
+					if (selectedStudent.value != null && selectedStudent.value.id === studentId) {
+						closeDetailModal();
+					}
+				}).catch((error) => {
+					console.error('解绑操作失败:', error);
+					ui.showToast({ message: '操作失败' });
+				});
+			}
+		}
+	});
+}
+
+function handleUnbindStudent() {
+	const student = selectedStudent.value;
+	if (student != null) {
+		unbindStudent(student.id);
+	}
+}
+
+function handleApproveBinding() {
+	const student = selectedStudent.value;
+	if (student != null) {
+		approveBinding(student.id);
+	}
+}
+
+function handleApproveStudent() {
+	const student = selectedStudent.value;
+	if (student != null) {
+		approveStudent(student.id);
+	}
+}
+
+function handleGraduateStudent() {
+	const student = selectedStudent.value;
+	if (student != null) {
+		graduateStudent(student.id);
+	}
+}
+
+onMounted(() => {
+	// 检查是否为导师
+	if (isMentor.value != true) {
+		ui.showToast({ message: '您不是导师，无法查看学员信息' });
+		router.back();
+		return;
+	}
+	
+	loadData();
+});
+</script>
+
+<style lang="scss" scoped>
+.container {
+	height: 100%;
+}
+</style>

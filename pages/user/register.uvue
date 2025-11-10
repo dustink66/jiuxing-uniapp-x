@@ -1,0 +1,382 @@
+<template>
+	<cl-page>
+		<cl-topbar safe-area-top background-color="transparent">
+			<template #left>
+				<cl-icon name="arrow-left" @tap="router.back()"></cl-icon>
+			</template>
+			<template #title>
+				<cl-text>{{ t("用户注册") }}</cl-text>
+			</template>
+		</cl-topbar>
+
+		<!-- #ifdef APP -->
+		<scroll-view class="container" style="flex: 1">
+		<!-- #endif -->
+		<view class="px-10">
+			<!-- Logo -->
+			<view class="flex flex-col items-center justify-center py-10">
+				<cl-image
+					src="/static/logo.png"
+					mode="widthFix"
+					:width="120"
+					:height="120"
+				></cl-image>
+				<cl-text :pt="{ className: 'text-lg font-bold mt-2' }">{{ config.name }}</cl-text>
+				<cl-text :pt="{ className: 'text-sm mt-1' }" color="info">{{ t("欢迎注册") }}</cl-text>
+			</view>
+
+			<!-- 注册表单 -->
+			<view class="flex flex-col">
+				<!-- 手机号 -->
+				<view class="mb-3 flex flex-row">
+					<cl-input
+						v-model="form.phone"
+						prefix-icon="device-fill"
+						:placeholder="t('请输入手机号')"
+						:border="false"
+						:pt="{
+							className: parseClass([
+								'!h-[90rpx] flex-1 !rounded-xl !px-4',
+								[isDark, '!bg-surface-70', '!bg-white']
+							]),
+							prefixIcon: {
+								className: 'mr-1'
+							}
+						}"
+					></cl-input>
+				</view>
+
+				<!-- 验证码 -->
+				<view class="mb-3 flex flex-row">
+					<cl-input
+						v-model="form.code"
+						prefix-icon="shield-check-fill"
+						:placeholder="t('请输入验证码')"
+						:border="false"
+						:pt="{
+							className: parseClass([
+								'!h-[90rpx] flex-1 !rounded-xl !px-4 mr-3',
+								[isDark, '!bg-surface-70', '!bg-white']
+							]),
+							prefixIcon: {
+								className: 'mr-1'
+							}
+						}"
+					></cl-input>
+					<sms-btn 
+						:phone="form.phone" 
+						type="register"
+						@success="onSmsSuccess"
+						:ref="refs.set('smsBtn')"
+					>
+						<template #default="{ disabled, countdown, btnText }">
+							<cl-button 
+								:disabled="disabled"
+								:pt="{ className: '!h-[90rpx] !rounded-xl !px-4' }"
+								text
+								@tap="openSmsBtn"
+							>
+								{{ btnText }}
+							</cl-button>
+						</template>
+					</sms-btn>
+				</view>
+
+				<!-- 密码 -->
+				<view class="mb-3 flex flex-row">
+					<cl-input
+						v-model="form.password"
+						:type="'password' as any"
+						prefix-icon="lock-fill"
+						:placeholder="t('请输入密码')"
+						:border="false"
+						:pt="{
+							className: parseClass([
+								'!h-[90rpx] flex-1 !rounded-xl !px-4',
+								[isDark, '!bg-surface-70', '!bg-white']
+							]),
+							prefixIcon: {
+								className: 'mr-1'
+							}
+						}"
+					></cl-input>
+				</view>
+
+				<!-- 昵称 -->
+				<view class="mb-3 flex flex-row">
+					<cl-input
+						v-model="form.nickname"
+						prefix-icon="user-fill"
+						:placeholder="t('请输入姓名')"
+						:border="false"
+						:pt="{
+							className: parseClass([
+								'!h-[90rpx] flex-1 !rounded-xl !px-4',
+								[isDark, '!bg-surface-70', '!bg-white']
+							]),
+							prefixIcon: {
+								className: 'mr-1'
+							}
+						}"
+					></cl-input>
+				</view>
+
+				<!-- 推荐人手机号 -->
+				<view class="mb-2">
+					<cl-text :pt="{ className: 'text-sm' }" color="info">
+						{{ t("推荐人手机号（选填）") }}
+					</cl-text>
+				</view>
+				<view class="mb-5 flex flex-row">
+					<cl-input
+						:value="form.referrer_phone != null ? form.referrer_phone : ''"
+						@input="handleReferrerPhoneInput"
+						prefix-icon="user-heart-fill"
+						:placeholder="t('请输入推荐人手机号')"
+						:border="false"
+						:pt="{
+							className: parseClass([
+								'!h-[90rpx] flex-1 !rounded-xl !px-4',
+								[isDark, '!bg-surface-70', '!bg-white']
+							]),
+							prefixIcon: {
+								className: 'mr-1'
+							}
+						}"
+					></cl-input>
+				</view>
+
+				<!-- 注册按钮 -->
+				<cl-button
+					:pt="{
+						className: '!h-[90rpx] !rounded-xl'
+					}"
+					:loading="loading"
+					:disabled="disabled"
+					@tap="toRegister"
+				>
+					{{ t("注册") }}
+				</cl-button>
+			</view>
+
+			<!-- 登录链接 -->
+			<view class="mt-6 flex flex-row items-center justify-center">
+				<cl-text color="info" :pt="{ className: 'text-sm' }">{{ t("已有账号？") }}</cl-text>
+				<cl-text 
+					:pt="{ className: 'text-sm ml-1' }"
+					@tap="toLogin"
+				>
+					{{ t("立即登录") }}
+				</cl-text>
+			</view>
+
+			<!-- 协议 -->
+			<view class="mt-6 flex flex-row flex-wrap items-center justify-center">
+				<cl-checkbox
+					v-model="agree"
+					:pt="{ icon: { size: 28 } }"
+					active-icon="checkbox-circle-fill"
+					inactive-icon="checkbox-blank-circle-line"
+				>
+				</cl-checkbox>
+				<cl-text color="info" :pt="{ className: 'text-xs' }">{{
+					t("已阅读并同意")
+				}}</cl-text>
+				<cl-text
+					:pt="{ className: 'text-xs' }"
+					@tap.stop="toDoc(t('用户协议'), 'userAgreement')"
+				>
+					《{{ t("用户协议") }}》
+				</cl-text>
+				<cl-text color="info" :pt="{ className: 'text-xs' }">、</cl-text>
+				<cl-text
+					:pt="{ className: 'text-xs' }"
+					@tap.stop="toDoc(t('隐私政策'), 'privacyPolicy')"
+				>
+					《{{ t("隐私政策") }}》
+				</cl-text>
+			</view>
+		</view>
+		<!-- #ifdef APP -->
+		</scroll-view>
+		<!-- #endif -->
+	</cl-page>
+</template>
+
+<script setup lang="ts">
+import { config } from "@/config";
+import { isDark, parseClass, router, useStore, useRefs, storage } from "@/cool";
+import { t } from "@/locale";
+import { computed, reactive, ref } from "vue";
+import type { RegisterForm } from "@/types";
+import { useUi } from "@/uni_modules/cool-ui";
+import SmsBtn from "@/components/sms-btn.uvue";
+import { AuthService } from "@/cool/service/auth";
+
+const { user } = useStore();
+const ui = useUi();
+const refs = useRefs();
+
+// 存储键名：保存上次登录的手机号
+const STORAGE_KEY_LAST_PHONE = "last_login_phone";
+
+// 表单
+const form = reactive<RegisterForm>({
+	phone: "",
+	code: "",
+	password: "",
+	nickname: "",
+	referrer_phone: ""
+});
+
+// 是否同意协议
+const agree = ref(false);
+
+// 是否加载中
+const loading = ref(false);
+
+// 是否禁用
+const disabled = computed(() => {
+	return form.phone == "" || 
+		   form.code == "" || 
+		   form.password == "" || 
+		   form.nickname == "" || 
+		   agree.value != true;
+});
+
+// 短信发送成功
+function onSmsSuccess() {
+	ui.showToast({
+		message: t("验证码已发送")
+	});
+}
+
+// 打开短信验证码组件
+function openSmsBtn() {
+	refs.open('smsBtn');
+}
+
+// 处理推荐人手机号输入
+function handleReferrerPhoneInput(e: UniInputEvent) {
+	const value = e.detail.value as string;
+	form.referrer_phone = value;
+}
+
+// 注册
+async function toRegister() {
+	if (agree.value != true) {
+		ui.showToast({
+			message: t("请先阅读并同意《用户协议》和《隐私政策》")
+		});
+		return;
+	}
+
+	// 验证手机号格式
+	if (!/^(?:(?:\+|00)86)?1[3-9]\d{9}$/.test(form.phone)) {
+		ui.showToast({
+			message: t("请填写正确的手机号格式")
+		});
+		return;
+	}
+
+	// 验证密码长度
+	if (form.password.length < 6) {
+		ui.showToast({
+			message: t("密码长度不能少于6位")
+		});
+		return;
+	}
+
+	// 验证推荐人手机号格式（如果填写了）
+	if (form.referrer_phone != "" && form.referrer_phone != null && !/^(?:(?:\+|00)86)?1[3-9]\d{9}$/.test(form.referrer_phone)) {
+		ui.showToast({
+			message: t("请填写正确的推荐人手机号格式")
+		});
+		return;
+	}
+
+	loading.value = true;
+
+	try {
+		const res = await AuthService.register(form);
+		
+		// 验证返回数据完整性（与登录逻辑保持一致）
+		if (res != null && res.user != null && res.token != null) {
+			// 设置用户信息
+			user.set(res.user);
+			// 设置token（自动登录）
+			const expire = res.expire != null && res.expire > 0 ? res.expire : 86400; // 默认24小时过期
+			const refreshToken = res.refreshToken != null && res.refreshToken != "" ? res.refreshToken : res.token;
+			const refreshExpire = res.refreshExpire != null && res.refreshExpire > 0 ? res.refreshExpire : 2592000; // 默认30天过期
+			
+			user.setToken({
+				token: res.token,
+				expire: expire,
+				refreshToken: refreshToken,
+				refreshExpire: refreshExpire
+			});
+
+			// 保存注册/登录的手机号，方便下次登录时自动填充
+			if (res.user.phone != null && res.user.phone != "") {
+				storage.set(STORAGE_KEY_LAST_PHONE, res.user.phone, 0);
+			}
+
+			ui.showToast({
+				message: t("注册成功")
+			});
+
+			// 注册成功后已自动登录，直接跳转到首页
+			setTimeout(() => {
+				router.push({
+					path: router.defaultPath("home"),
+					mode: "reLaunch"
+				});
+				// 触发登录后回调
+				uni.$emit("afterLogin");
+			}, 500);
+		} else {
+			ui.showToast({
+				message: t("注册失败，返回数据异常")
+			});
+		}
+	} catch (err: any) {
+		let errMsg: string | null | undefined = null;
+		
+		// 安全地访问错误对象的 message 属性
+		if (err != null && err instanceof Error) {
+			const error = err as Error;
+			if (error.message != null && typeof error.message === "string") {
+				errMsg = error.message;
+			}
+		} else if (err != null && typeof err === "object") {
+			const errObj = err as UTSJSONObject;
+			if (errObj.hasOwnProperty("errMsg") && typeof errObj.errMsg === "string") {
+				errMsg = errObj.errMsg as string;
+			}
+		}
+		
+		const errorMessage: string = (errMsg != null && errMsg != "" ? errMsg : t("注册失败")) as string;
+		ui.showToast({
+			message: errorMessage
+		});
+	}
+
+	loading.value = false;
+}
+
+// 跳转到登录页
+function toLogin() {
+	router.back();
+}
+
+// 跳转文档
+function toDoc(name: string, path: string) {
+	// TODO: 实现文档跳转
+}
+</script>
+
+<style scoped>
+.container {
+	height: 100%;
+}
+</style>

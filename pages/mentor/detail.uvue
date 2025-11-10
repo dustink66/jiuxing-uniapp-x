@@ -1,0 +1,389 @@
+<template>
+	<cl-page>
+		<!-- #ifdef APP -->
+		<scroll-view class="container" style="flex: 1">
+		<!-- #endif -->
+		<view class="p-3">
+			<!-- 导师信息 -->
+			<view v-if="ment != null" class="bg-white dark:!bg-surface-800 rounded-xl p-4 mb-4">
+				<!-- 导师基本信息 -->
+				<view class="flex flex-row items-start mb-3">
+					<cl-avatar :src="getMentorAvatar()" :size="80" :pt="{ className: '!rounded-full' }"></cl-avatar>
+					<view class="ml-3 flex-1">
+						<view class="flex flex-row items-center mb-1">
+							<cl-text :pt="{ className: '!text-lg font-bold' }">{{ getMentorName() }}</cl-text>
+							<cl-text color="primary" :pt="{ className: '!text-sm ml-2' }">{{ getMentorLevelName() }}</cl-text>
+						</view>
+						<view class="flex flex-row items-center gap-3">
+							<view v-if="getMentorGender() != null" class="flex flex-row items-center">
+								<cl-icon name="user-line" :size="20" color="surface-400"></cl-icon>
+								<cl-text color="surface-400" :pt="{ className: '!text-xs ml-1' }">
+									{{ getMentorGender() === 1 ? '男' : getMentorGender() === 2 ? '女' : '未知' }}
+								</cl-text>
+							</view>
+							<view v-if="getMentorAge() != null" class="flex flex-row items-center">
+								<cl-icon name="calendar-line" :size="20" color="surface-400"></cl-icon>
+								<cl-text color="surface-400" :pt="{ className: '!text-xs ml-1' }">{{ getMentorAge() }}岁</cl-text>
+							</view>
+							<view v-if="getMentorCity() != ''" class="flex flex-row items-center">
+								<cl-icon name="map-pin-line" :size="20" color="surface-400"></cl-icon>
+								<cl-text color="surface-400" :pt="{ className: '!text-xs ml-1' }">{{ getMentorCity() }}</cl-text>
+							</view>
+							<view v-if="getMentorWorkplace() != ''" class="flex flex-row items-center">
+								<cl-icon name="briefcase-line" :size="20" color="surface-400"></cl-icon>
+								<cl-text color="surface-400" :pt="{ className: '!text-xs ml-1' }">{{ getMentorWorkplace() }}</cl-text>
+							</view>
+						</view>
+					</view>
+				</view>
+				
+				<!-- 导师数据统计 -->
+				<view class="flex flex-row items-center justify-between">
+					<view class="flex flex-row items-center">
+						<cl-icon name="star-line" :size="24" color="primary"></cl-icon>
+						<cl-text color="primary" :pt="{ className: '!text-sm ml-1' }">
+							入学门槛 {{ getMentorStudentRequiredIntegral() }}积分
+						</cl-text>
+					</view>
+					<view class="flex flex-row items-center">
+						<cl-icon name="user-heart-line" :size="24" color="success"></cl-icon>
+						<cl-text color="success" :pt="{ className: '!text-sm ml-1' }">
+							学员情况 {{ getMentorActiveStudentsCount() }} / {{ getMentorMaxStudents() }}
+						</cl-text>
+					</view>
+				</view>
+			</view>
+
+			<!-- 操作按钮 -->
+			<view class="mb-4">
+				<cl-button 
+					type="primary" 
+					size="large" 
+					:disabled="canBind != true"
+					@tap="bindMentor"
+				>
+					{{ getButtonText() }}
+				</cl-button>
+			</view>
+
+			<!-- 导师介绍 -->
+			<view v-if="ment != null" class="bg-white dark:!bg-surface-800 rounded-xl p-4">
+				<cl-text :pt="{ className: '!text-lg font-bold mb-3' }">导师介绍</cl-text>
+				<cl-text color="surface-400" :pt="{ className: '!text-sm' }">
+					{{ getMentorDescription() }}
+				</cl-text>
+			</view>
+		</view>
+		<!-- #ifdef APP -->
+		</scroll-view>
+		<!-- #endif -->
+	</cl-page>
+</template>
+
+<script lang="ts" setup>
+import { router, parse } from "@/cool";
+import { ref, onMounted, computed } from "vue";
+import { useUi } from "@/uni_modules/cool-ui";
+import { MentorService } from "@/cool/service/mentor";
+import { request } from "@/cool/service";
+import type { MentorInfo, User } from "@/types/habit";
+
+const ui = useUi();
+
+// 数据
+const mentor = ref<any | null>(null);
+const user = ref<any | null>(null);
+const mentorId = ref<number>(0);
+
+// 使用 computed 避免 Smart cast 问题
+const ment = computed(() => {
+	const value = mentor.value;
+	if (value != null) {
+		return value as any;
+	}
+	return {} as any; // 返回空对象而不是 null，避免 NullPointerException
+});
+
+// 计算属性
+const canBind = computed(() => {
+	const m = mentor.value;
+	const u = user.value;
+	if (m == null || u == null) return false;
+	// #ifdef APP-ANDROID
+	const mentorObj = m as UTSJSONObject;
+	const userObj = u as UTSJSONObject;
+	const userIntegral = userObj["integral"] as number | null;
+	const requiredIntegral = mentorObj["student_required_integral"] as number | null;
+	if (userIntegral == null || requiredIntegral == null) return false;
+	return userIntegral >= requiredIntegral;
+	// #endif
+	// #ifndef APP-ANDROID
+	const mentorInfo = m as MentorInfo;
+	const userInfo = u as User;
+	return userInfo.integral >= mentorInfo.student_required_integral;
+	// #endif
+});
+
+// 辅助函数：安全获取导师属性
+function getMentorName(): string {
+	const m = ment.value;
+	if (m == null) return '';
+	// #ifdef APP-ANDROID
+	const mentorObj = m as UTSJSONObject;
+	const name = mentorObj["name"] as string | null;
+	return name != null ? name : '';
+	// #endif
+	// #ifndef APP-ANDROID
+	const mentorInfo = m as MentorInfo;
+	return mentorInfo.name != null ? mentorInfo.name : '';
+	// #endif
+}
+
+function getMentorLevelName(): string {
+	const m = ment.value;
+	if (m == null) return '';
+	// #ifdef APP-ANDROID
+	const mentorObj = m as UTSJSONObject;
+	const levelName = mentorObj["level_name"] as string | null;
+	return levelName != null ? levelName : '';
+	// #endif
+	// #ifndef APP-ANDROID
+	const mentorInfo = m as MentorInfo;
+	return mentorInfo.level_name != null ? mentorInfo.level_name : '';
+	// #endif
+}
+
+function getMentorAvatar(): string {
+	const m = ment.value;
+	if (m == null) return '';
+	let avatarValue: string | null = null;
+	// #ifdef APP-ANDROID
+	const mentorObj = m as UTSJSONObject;
+	avatarValue = mentorObj["avatar"] as string | null;
+	// #endif
+	// #ifndef APP-ANDROID
+	const mentorInfo = m as MentorInfo;
+	avatarValue = mentorInfo.avatar != null ? mentorInfo.avatar : null;
+	// #endif
+	return avatarValue != null ? avatarValue : '';
+}
+
+function getMentorGender(): number | null {
+	const m = ment.value;
+	if (m == null) return null;
+	// #ifdef APP-ANDROID
+	const mentorObj = m as UTSJSONObject;
+	const gender = mentorObj["gender"] as number | null;
+	return gender;
+	// #endif
+	// #ifndef APP-ANDROID
+	const mentorInfo = m as MentorInfo;
+	return mentorInfo.gender != null ? mentorInfo.gender : null;
+	// #endif
+}
+
+function getMentorAge(): number | null {
+	const m = ment.value;
+	if (m == null) return null;
+	// #ifdef APP-ANDROID
+	const mentorObj = m as UTSJSONObject;
+	const age = mentorObj["age"] as number | null;
+	return age;
+	// #endif
+	// #ifndef APP-ANDROID
+	const mentorInfo = m as MentorInfo;
+	return mentorInfo.age != null ? mentorInfo.age : null;
+	// #endif
+}
+
+function getMentorCity(): string {
+	const m = ment.value;
+	if (m == null) return '';
+	// #ifdef APP-ANDROID
+	const mentorObj = m as UTSJSONObject;
+	const city = mentorObj["city"] as string | null;
+	return city != null ? city : '';
+	// #endif
+	// #ifndef APP-ANDROID
+	const mentorInfo = m as MentorInfo;
+	return mentorInfo.city != null ? mentorInfo.city : '';
+	// #endif
+}
+
+function getMentorWorkplace(): string {
+	const m = ment.value;
+	if (m == null) return '';
+	let workplaceValue: string | null = null;
+	// #ifdef APP-ANDROID
+	const mentorObj = m as UTSJSONObject;
+	workplaceValue = mentorObj["workplace"] as string | null;
+	// #endif
+	// #ifndef APP-ANDROID
+	const mentorInfo = m as MentorInfo;
+	workplaceValue = mentorInfo.workplace != null ? mentorInfo.workplace : null;
+	// #endif
+	return workplaceValue != null ? workplaceValue : '';
+}
+
+function getMentorStudentRequiredIntegral(): number {
+	const m = ment.value;
+	if (m == null) return 0;
+	// #ifdef APP-ANDROID
+	const mentorObj = m as UTSJSONObject;
+	const integral = mentorObj["student_required_integral"] as number | null;
+	return integral != null ? integral : 0;
+	// #endif
+	// #ifndef APP-ANDROID
+	const mentorInfo = m as MentorInfo;
+	return mentorInfo.student_required_integral;
+	// #endif
+}
+
+function getMentorActiveStudentsCount(): number {
+	const m = ment.value;
+	if (m == null) return 0;
+	// #ifdef APP-ANDROID
+	const mentorObj = m as UTSJSONObject;
+	const count = mentorObj["active_students_count"] as number | null;
+	return count != null ? count : 0;
+	// #endif
+	// #ifndef APP-ANDROID
+	const mentorInfo = m as MentorInfo;
+	return mentorInfo.active_students_count != null ? mentorInfo.active_students_count : 0;
+	// #endif
+}
+
+function getMentorMaxStudents(): number {
+	const m = ment.value;
+	if (m == null) return 0;
+	// #ifdef APP-ANDROID
+	const mentorObj = m as UTSJSONObject;
+	const max = mentorObj["max_students"] as number | null;
+	return max != null ? max : 0;
+	// #endif
+	// #ifndef APP-ANDROID
+	const mentorInfo = m as MentorInfo;
+	return mentorInfo.max_students != null ? mentorInfo.max_students : 0;
+	// #endif
+}
+
+function getMentorDescription(): string {
+	const m = ment.value;
+	if (m == null) return '暂无介绍';
+	// #ifdef APP-ANDROID
+	const mentorObj = m as UTSJSONObject;
+	const description = mentorObj["description"] as string | null;
+	return description != null && description != "" ? description : '暂无介绍';
+	// #endif
+	// #ifndef APP-ANDROID
+	const mentorInfo = m as MentorInfo;
+	return mentorInfo.description != null && mentorInfo.description != "" ? mentorInfo.description : '暂无介绍';
+	// #endif
+}
+
+// 方法
+function goBack() {
+	router.back();
+}
+
+function getButtonText(): string {
+	const m = mentor.value;
+	const u = user.value;
+	if (m == null || u == null) return '加载中...';
+	// #ifdef APP-ANDROID
+	const mentorObj = m as UTSJSONObject;
+	const userObj = u as UTSJSONObject;
+	const userIntegral = userObj["integral"] as number | null;
+	const requiredIntegral = mentorObj["student_required_integral"] as number | null;
+	if (userIntegral == null || requiredIntegral == null) return '加载中...';
+	if (userIntegral < requiredIntegral) {
+		return `需要${requiredIntegral}积分`;
+	}
+	return '申请成为学员';
+	// #endif
+	// #ifndef APP-ANDROID
+	const mentorInfo = m as MentorInfo;
+	const userInfo = u as User;
+	if (userInfo.integral < mentorInfo.student_required_integral) {
+		return `需要${mentorInfo.student_required_integral}积分`;
+	}
+	return '申请成为学员';
+	// #endif
+}
+
+async function bindMentor() {
+	if (canBind.value != true) {
+		ui.showToast({
+			message: '积分不足，无法申请'
+		});
+		return;
+	}
+
+	try {
+		await MentorService.bindMentor(mentorId.value);
+		ui.showToast({
+			message: '申请成功，等待导师审核'
+		});
+		router.back();
+	} catch (error: any) {
+		const errorMsg = error != null && error.message != null && error.message != "" ? error.message : '申请失败';
+		const errorMessage: string = errorMsg != null ? errorMsg : '申请失败';
+		ui.showToast({
+			message: errorMessage
+		});
+	}
+}
+
+// 加载数据
+async function loadData() {
+	try {
+		// 加载导师详情
+		const mentorData = await MentorService.getMentorDetail(mentorId.value);
+		if (mentorData != null) {
+			// #ifdef APP-ANDROID
+			// Android 平台：直接赋值 UTSJSONObject，避免类型转换错误
+			mentor.value = mentorData;
+			// #endif
+			// #ifndef APP-ANDROID
+			// 其他平台：使用 parse 转换
+			const parsedMentor = parse<MentorInfo>(mentorData);
+			if (parsedMentor != null) {
+				mentor.value = parsedMentor;
+			}
+			// #endif
+		}
+
+		// 加载用户信息
+		const userData = await request({ url: '/user/profile', method: 'GET' });
+		if (userData != null) {
+			// #ifdef APP-ANDROID
+			// Android 平台：直接赋值 UTSJSONObject，避免类型转换错误
+			user.value = userData;
+			// #endif
+			// #ifndef APP-ANDROID
+			// 其他平台：使用 parse 转换
+			const parsedUser = parse<User>(userData);
+			if (parsedUser != null) {
+				user.value = parsedUser;
+			}
+			// #endif
+		}
+
+	} catch (error) {
+		console.error('加载数据失败:', error);
+		ui.showToast({
+			message: '加载数据失败'
+		});
+	}
+}
+
+onMounted(() => {
+	loadData();
+});
+</script>
+
+<style lang="scss" scoped>
+.container {
+	height: 100%;
+}
+</style>
