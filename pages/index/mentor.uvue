@@ -114,15 +114,14 @@ const isMentor = computed(() => mentor.isMentor);
 const isUserMentor = computed(() => user.info.value?.is_mentor === true);
 
 // 使用store中的数据
-// 在Android平台上，数据实际是UTSJSONObject[]，使用类型断言避免类型转换错误
-const mentors = computed<any[]>(() => mentor.mentors.value as any[]);
-const students = computed<any[]>(() => mentor.students.value as any[]);
+const mentors = computed<MentorInfo[]>(() => mentor.mentors.value);
+const students = computed<StudentInfo[]>(() => mentor.students.value);
 
 // 搜索相关
 const searchKeyword = ref("");
 
 // 过滤后的导师列表
-const filteredMentors = computed<any[]>(() => {
+const filteredMentors = computed<MentorInfo[]>(() => {
 	if (mentors.value == null || mentors.value.length === 0) {
 		return [];
 	}
@@ -132,74 +131,73 @@ const filteredMentors = computed<any[]>(() => {
 	}
 	
 	const keyword = searchKeyword.value.toLowerCase().trim();
-	return mentors.value.filter((m: any) => {
-		const mentorObj = m as UTSJSONObject;
-		const name = mentorObj["name"] as string | null;
-		const description = mentorObj["description"] as string | null;
-		const nameMatch = name != null && name.toLowerCase().includes(keyword);
-		const descMatch = description != null && description.toLowerCase().includes(keyword);
+	return mentors.value.filter((m: MentorInfo) => {
+		const mentorInfo = m as MentorInfo;
+		const name = mentorInfo?.name ?? "";
+		const description = mentorInfo?.description ?? "";
+		const nameMatch = name.toLowerCase().includes(keyword);
+		const descMatch = description.toLowerCase().includes(keyword);
 		return nameMatch || descMatch;
 	});
 });
 
 // 辅助函数：安全访问导师对象属性
-function getMentorId(mentor: any, index: number): number {
-	const mentorObj = mentor as UTSJSONObject;
-	const id = mentorObj["id"] as number | null;
-	return id != null ? id : index;
+function getMentorId(mentor: MentorInfo | any, index: number): number {
+	const mentorInfo = mentor as MentorInfo;
+	return mentorInfo?.id ?? index;
 }
 
-function getMentorAvatar(mentor: any): string {
-	const mentorObj = mentor as UTSJSONObject;
-	return (mentorObj["avatar"] as string | null) ?? "";
+function getMentorAvatar(mentor: MentorInfo | any): string {
+	const mentorInfo = mentor as MentorInfo;
+	return mentorInfo?.avatar ?? "";
 }
 
-function getMentorName(mentor: any): string {
-	const mentorObj = mentor as UTSJSONObject;
-	return (mentorObj["name"] as string | null) ?? "";
+function getMentorName(mentor: MentorInfo | any): string {
+	const mentorInfo = mentor as MentorInfo;
+	return mentorInfo?.name ?? "";
 }
 
-function getMentorLevelName(mentor: any): string {
-	const mentorObj = mentor as UTSJSONObject;
-	return (mentorObj["level_name"] as string | null) ?? "";
+function getMentorLevelName(mentor: MentorInfo | any): string {
+	const mentorInfo = mentor as MentorInfo;
+	return mentorInfo?.level_name ?? "";
 }
 
-function getMentorGender(mentor: any): number | null {
-	const mentorObj = mentor as UTSJSONObject;
-	return mentorObj["gender"] as number | null;
+function getMentorGender(mentor: MentorInfo | any): number | null {
+	const mentorInfo = mentor as MentorInfo;
+	return mentorInfo?.gender ?? null;
 }
 
-function getMentorAge(mentor: any): number | null {
-	const mentorObj = mentor as UTSJSONObject;
-	return mentorObj["age"] as number | null;
+function getMentorAge(mentor: MentorInfo | any): number | null {
+	const mentorInfo = mentor as MentorInfo;
+	return mentorInfo?.age ?? null;
 }
 
-function getMentorCity(mentor: any): string {
-	const mentorObj = mentor as UTSJSONObject;
-	return (mentorObj["city"] as string | null) ?? "";
+function getMentorCity(mentor: MentorInfo | any): string {
+	const mentorInfo = mentor as MentorInfo;
+	return mentorInfo?.city ?? "";
 }
 
-function getMentorWorkplace(mentor: any): string {
-	const mentorObj = mentor as UTSJSONObject;
-	return (mentorObj["workplace"] as string | null) ?? "";
+function getMentorWorkplace(mentor: MentorInfo | any): string {
+	const mentorInfo = mentor as MentorInfo;
+	return mentorInfo?.workplace ?? "";
 }
 
-function getMentorStudentRequiredIntegral(mentor: any): number {
-	const mentorObj = mentor as UTSJSONObject;
-	return (mentorObj["student_required_integral"] as number | null) ?? 0;
+function getMentorStudentRequiredIntegral(mentor: MentorInfo | any): number {
+	const mentorInfo = mentor as MentorInfo;
+	return mentorInfo?.student_required_integral ?? 0;
 }
 
-function getMentorActiveStudentsCount(mentor: any): number {
-	const mentorObj = mentor as UTSJSONObject;
-	return (mentorObj["active_students_count"] as number | null) ?? 0;
+function getMentorActiveStudentsCount(mentor: MentorInfo | any): number {
+	const mentorInfo = mentor as MentorInfo;
+	return mentorInfo?.active_students_count ?? 0;
 }
 
-function getMentorMaxStudents(mentor: any): number {
-	const mentorObj = mentor as UTSJSONObject;
-	return (mentorObj["max_students"] as number | null) ?? 0;
+function getMentorMaxStudents(mentor: MentorInfo | any): number {
+	const mentorInfo = mentor as MentorInfo;
+	return mentorInfo?.max_students ?? 0;
 }
 
-function getMentorGenderText(mentor: any): string {
+function getMentorGenderText(mentor: MentorInfo | any): string {
 	const gender = getMentorGender(mentor);
 	if (gender == null) return '未知';
 	if (gender === 1) return '男';
@@ -234,9 +232,9 @@ function toMentorDetail(id: number) {
 }
 
 // 处理导师卡片点击
-function handleMentorClick(mentor: any) {
-	const mentorObj = mentor as UTSJSONObject;
-	const id = mentorObj["id"] as number | null;
+function handleMentorClick(mentor: MentorInfo | any) {
+	const mentorInfo = mentor as MentorInfo;
+	const id = mentorInfo?.id;
 	if (id != null) {
 		toMentorDetail(id);
 	}

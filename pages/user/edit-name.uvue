@@ -70,7 +70,13 @@ async function confirm() {
 		nickname: content.value
 	});
 
-	router.back();
+	ui.showToast({
+		message: t("姓名更新成功")
+	});
+
+	setTimeout(() => {
+		router.back();
+	}, 1000);
 }
 
 // 页面加载时，设置输入框内容

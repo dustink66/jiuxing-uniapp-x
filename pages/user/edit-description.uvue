@@ -36,7 +36,7 @@ const content = ref("");
 async function confirm() {
 	if (content.value == "") {
 		return ui.showToast({
-			message: t("我的传记不能为空")
+			message: t("个人简介不能为空")
 		});
 	}
 
@@ -44,7 +44,13 @@ async function confirm() {
 		description: content.value
 	});
 
-	router.back();
+	ui.showToast({
+		message: t("个人简介更新成功")
+	});
+
+	setTimeout(() => {
+		router.back();
+	}, 1000);
 }
 
 onMounted(() => {

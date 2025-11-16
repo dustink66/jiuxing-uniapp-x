@@ -112,66 +112,63 @@ const { activity } = useStore();
 const activityStore = activity;
 
 // 使用store中的数据
-// 在Android平台上，数据实际是UTSJSONObject[]，使用类型断言避免类型转换错误
-const activities = computed<any[]>(() => activityStore.activities.value as any[]);
+const activities = computed<ActivityInfo[]>(() => activityStore.activities.value);
 
 // 计算属性
-const filteredActivities = computed<any[]>(() => {
+const filteredActivities = computed<ActivityInfo[]>(() => {
 	if (activities.value == null || activities.value.length === 0) return [];
-	// 在安卓平台上，直接返回数据，不进行类型转换
 	return activities.value;
 });
 
 // 辅助函数：安全访问活动对象属性
-function getActivityId(activity: any, index: number): number {
-	const act = activity as UTSJSONObject;
-	const id = act["id"] as number | null;
-	return id != null ? id : index;
+function getActivityId(activity: ActivityInfo | any, index: number): number {
+	const act = activity as ActivityInfo;
+	return act?.id != null ? act.id : index;
 }
 
-function getActivityTitle(activity: any): string {
-	const act = activity as UTSJSONObject;
-	return (act["title"] as string | null) ?? "";
+function getActivityTitle(activity: ActivityInfo | any): string {
+	const act = activity as ActivityInfo;
+	return act?.title ?? "";
 }
 
-function getActivityDescription(activity: any): string {
-	const act = activity as UTSJSONObject;
-	return (act["description"] as string | null) ?? "";
+function getActivityDescription(activity: ActivityInfo | any): string {
+	const act = activity as ActivityInfo;
+	return act?.description ?? "";
 }
 
-function getActivityCoverImage(activity: any): string {
-	const act = activity as UTSJSONObject;
-	return (act["cover_image"] as string | null) ?? "";
+function getActivityCoverImage(activity: ActivityInfo | any): string {
+	const act = activity as ActivityInfo;
+	return act?.cover_image ?? "";
 }
 
-function getActivityStartTime(activity: any): string {
-	const act = activity as UTSJSONObject;
-	return (act["start_time"] as string | null) ?? "";
+function getActivityStartTime(activity: ActivityInfo | any): string {
+	const act = activity as ActivityInfo;
+	return act?.start_time ?? "";
 }
 
-function getActivityEndTime(activity: any): string {
-	const act = activity as UTSJSONObject;
-	return (act["end_time"] as string | null) ?? "";
+function getActivityEndTime(activity: ActivityInfo | any): string {
+	const act = activity as ActivityInfo;
+	return act?.end_time ?? "";
 }
 
-function getActivityAddress(activity: any): string {
-	const act = activity as UTSJSONObject;
-	return (act["address"] as string | null) ?? "";
+function getActivityAddress(activity: ActivityInfo | any): string {
+	const act = activity as ActivityInfo;
+	return act?.address ?? "";
 }
 
-function getActivityMinIntegral(activity: any): number {
-	const act = activity as UTSJSONObject;
-	return (act["min_integral"] as number | null) ?? 0;
+function getActivityMinIntegral(activity: ActivityInfo | any): number {
+	const act = activity as ActivityInfo;
+	return act?.min_integral ?? 0;
 }
 
-function getActivityCurrentParticipants(activity: any): number {
-	const act = activity as UTSJSONObject;
-	return (act["current_participants"] as number | null) ?? 0;
+function getActivityCurrentParticipants(activity: ActivityInfo | any): number {
+	const act = activity as ActivityInfo;
+	return act?.current_participants ?? 0;
 }
 
-function getActivityMaxParticipants(activity: any): number {
-	const act = activity as UTSJSONObject;
-	return (act["max_participants"] as number | null) ?? 0;
+function getActivityMaxParticipants(activity: ActivityInfo | any): number {
+	const act = activity as ActivityInfo;
+	return act?.max_participants ?? 0;
 }
 
 // 方法
@@ -180,7 +177,7 @@ function formatDateTime(dateStr: string): string {
   return `${date.getMonth() + 1}/${date.getDate()} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
 }
 
-function getActivityStatusColor(activity: any): string {
+function getActivityStatusColor(activity: ActivityInfo | any): string {
   const now = new Date();
   const startTimeStr = getActivityStartTime(activity);
   const endTimeStr = getActivityEndTime(activity);
@@ -194,7 +191,7 @@ function getActivityStatusColor(activity: any): string {
   return 'surface-400';
 }
 
-function getActivityStatusText(activity: any): string {
+function getActivityStatusText(activity: ActivityInfo | any): string {
   const now = new Date();
   const startTimeStr = getActivityStartTime(activity);
   const endTimeStr = getActivityEndTime(activity);
@@ -208,7 +205,7 @@ function getActivityStatusText(activity: any): string {
   return '已结束';
 }
 
-function getButtonType(activity: any): 'primary' | 'success' | 'info' {
+function getButtonType(activity: ActivityInfo | any): 'primary' | 'success' | 'info' {
   const now = new Date();
   const startTimeStr = getActivityStartTime(activity);
   const endTimeStr = getActivityEndTime(activity);
@@ -222,7 +219,7 @@ function getButtonType(activity: any): 'primary' | 'success' | 'info' {
   return 'info';
 }
 
-function getButtonText(activity: any): string {
+function getButtonText(activity: ActivityInfo | any): string {
   const now = new Date();
   const startTimeStr = getActivityStartTime(activity);
   const endTimeStr = getActivityEndTime(activity);
@@ -236,7 +233,7 @@ function getButtonText(activity: any): string {
   return '已结束';
 }
 
-function canJoin(activity: any): boolean {
+function canJoin(activity: ActivityInfo | any): boolean {
   const now = new Date();
   const endTimeStr = getActivityEndTime(activity);
   if (endTimeStr == "") return false;
@@ -261,7 +258,7 @@ function toActivityDetail(id: number) {
 }
 
 // 参与活动
-async function joinActivity(activity: any) {
+async function joinActivity(activity: ActivityInfo | any) {
   try {
     const activityId = getActivityId(activity, 0);
     const now = new Date();

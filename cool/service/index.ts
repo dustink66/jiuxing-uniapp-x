@@ -197,11 +197,12 @@ export function request(options: RequestOptions): Promise<any> {
 							const parsed = parse<Response>(body ?? { code: 0 })!;
 							const codeVal = parsed.code != null ? parsed.code as number : null;
 							const msgVal = parsed.message != null ? parsed.message as string : null;
-							const payload: any = parsed.data as any;
+							// 安全处理 data，如果为 null 则使用空对象，避免 Android 平台类型转换错误
+							const payload: any = parsed.data != null ? parsed.data as any : {};
 
 							switch (codeVal) {
 								case 200:
-									resolve(payload as any);
+									resolve(payload);
 									break;
 								default:
 									reject({ message: msgVal, code: codeVal } as Response);

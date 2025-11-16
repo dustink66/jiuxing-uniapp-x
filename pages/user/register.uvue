@@ -301,39 +301,55 @@ async function toRegister() {
 		const res = await AuthService.register(form);
 		
 		// 验证返回数据完整性（与登录逻辑保持一致）
-		if (res != null && res.user != null && res.token != null) {
-			// 设置用户信息
-			user.set(res.user);
-			// 设置token（自动登录）
-			const expire = res.expire != null && res.expire > 0 ? res.expire : 86400; // 默认24小时过期
-			const refreshToken = res.refreshToken != null && res.refreshToken != "" ? res.refreshToken : res.token;
-			const refreshExpire = res.refreshExpire != null && res.refreshExpire > 0 ? res.refreshExpire : 2592000; // 默认30天过期
+		// 使用 UTSJSONObject 方式访问，因为 res 是 any 类型
+		const resData = res as UTSJSONObject;
+		if (resData != null) {
+			const resUser = resData["user"] as UTSJSONObject | null;
+			const resToken = resData["token"] as string | null;
 			
-			user.setToken({
-				token: res.token,
-				expire: expire,
-				refreshToken: refreshToken,
-				refreshExpire: refreshExpire
-			});
-
-			// 保存注册/登录的手机号，方便下次登录时自动填充
-			if (res.user.phone != null && res.user.phone != "") {
-				storage.set(STORAGE_KEY_LAST_PHONE, res.user.phone, 0);
-			}
-
-			ui.showToast({
-				message: t("注册成功")
-			});
-
-			// 注册成功后已自动登录，直接跳转到首页
-			setTimeout(() => {
-				router.push({
-					path: router.defaultPath("home"),
-					mode: "reLaunch"
+			if (resUser != null && resToken != null) {
+				// 设置用户信息
+				user.set(resUser);
+				// 设置token（自动登录）
+				const expireVal = resData["expire"] as number | null;
+				const refreshTokenVal = resData["refreshToken"] as string | null;
+				const refreshExpireVal = resData["refreshExpire"] as number | null;
+				
+				const expire = expireVal != null && expireVal > 0 ? expireVal : 86400; // 默认24小时过期
+				const refreshToken = refreshTokenVal != null && refreshTokenVal != "" ? refreshTokenVal : resToken;
+				const refreshExpire = refreshExpireVal != null && refreshExpireVal > 0 ? refreshExpireVal : 2592000; // 默认30天过期
+				
+				user.setToken({
+					token: resToken,
+					expire: expire,
+					refreshToken: refreshToken,
+					refreshExpire: refreshExpire
 				});
-				// 触发登录后回调
-				uni.$emit("afterLogin");
-			}, 500);
+
+				// 保存注册/登录的手机号，方便下次登录时自动填充
+				const userPhone = resUser["phone"] as string | null;
+				if (userPhone != null && userPhone != "") {
+					storage.set(STORAGE_KEY_LAST_PHONE, userPhone, 0);
+				}
+
+				ui.showToast({
+					message: t("注册成功")
+				});
+
+				// 注册成功后已自动登录，直接跳转到首页
+				setTimeout(() => {
+					router.push({
+						path: router.defaultPath("home"),
+						mode: "reLaunch"
+					});
+					// 触发登录后回调
+					uni.$emit("afterLogin");
+				}, 500);
+			} else {
+				ui.showToast({
+					message: t("注册失败，返回数据异常")
+				});
+			}
 		} else {
 			ui.showToast({
 				message: t("注册失败，返回数据异常")

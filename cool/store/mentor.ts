@@ -1,5 +1,6 @@
 import { ref, computed } from "vue";
 import { request } from "../service";
+import { parse } from "../utils";
 import type { MentorInfo, StudentInfo } from "@/types/habit";
 
 export class Mentor {
@@ -37,11 +38,19 @@ export class Mentor {
 			const responseData: any = await request({ url: '/mentor/list', method: 'GET' });
 			
 			// 兼容两种返回：数组 或 分页对象 { data: MentorInfo[] }
+			type ResponseData = {
+				data?: MentorInfo[]
+			}
 			let mentors: MentorInfo[] = [];
 			if (Array.isArray(responseData)) {
-				mentors = responseData as MentorInfo[];
-			} else if (responseData != null && (responseData as UTSJSONObject).hasOwnProperty('data') && Array.isArray((responseData as UTSJSONObject).data)) {
-				mentors = (responseData as UTSJSONObject).data as MentorInfo[];
+				// 如果是数组，需要解析每个元素
+				mentors = responseData.map((item: any) => parse<MentorInfo>(item)!).filter((item: MentorInfo | null) => item != null) as MentorInfo[];
+			} else if (responseData != null) {
+				// 如果是对象，先解析对象，再获取 data 属性
+				const parsed = parse<ResponseData>(responseData);
+				if (parsed != null && parsed.data != null && Array.isArray(parsed.data)) {
+					mentors = parsed.data.map((item: any) => parse<MentorInfo>(item)!).filter((item: MentorInfo | null) => item != null) as MentorInfo[];
+				}
 			}
 			
 			this.setMentors(mentors);
@@ -81,7 +90,12 @@ export class Mentor {
 		try {
 			const data = await request({ url: '/mentor/my', method: 'GET' });
 			if (data != null) {
-				this.setMyMentor(data as MentorInfo);
+				const mentor = parse<MentorInfo>(data);
+				if (mentor != null) {
+					this.setMyMentor(mentor);
+				} else {
+					this.setMyMentor(null);
+				}
 			} else {
 				this.setMyMentor(null);
 			}
@@ -101,6 +115,30 @@ export class Mentor {
 	setMyMentor(data: MentorInfo | null) {
 		this.myMentor.value = data;
 		this.isMentor = data != null;
+	}
+
+	/**
+	 * 获取导师详情（从服务端拉取最新信息并更新本地）
+	 * @param id 导师ID
+	 * @returns Promise<MentorInfo | null>
+	 */
+	async getMentorDetail(id: string): Promise<MentorInfo | null> {
+		try {
+			const url = `/mentor/${id}`;
+			const data = await request({ url, method: 'GET' });
+			
+			if (data != null) {
+				// 使用 parse 函数转换数据，在 Android 平台上会自动处理 UTSJSONObject
+				const parsedMentor = parse<MentorInfo>(data);
+				if (parsedMentor != null) {
+					this.currentMentor.value = parsedMentor;
+				}
+			}
+			return this.currentMentor.value;
+		} catch (error) {
+			console.error("获取导师详情失败:", error);
+			throw error;
+		}
 	}
 
 	/**
@@ -140,11 +178,19 @@ export class Mentor {
 			const responseData: any = await request({ url: '/mentor/students', method: 'GET' });
 			
 			// 兼容两种返回：数组 或 分页对象 { data: StudentInfo[] }
+			type StudentResponseData = {
+				data?: StudentInfo[]
+			}
 			let students: StudentInfo[] = [];
 			if (Array.isArray(responseData)) {
-				students = responseData as StudentInfo[];
-			} else if (responseData != null && (responseData as UTSJSONObject).hasOwnProperty('data') && Array.isArray((responseData as UTSJSONObject).data)) {
-				students = (responseData as UTSJSONObject).data as StudentInfo[];
+				// 如果是数组，需要解析每个元素
+				students = responseData.map((item: any) => parse<StudentInfo>(item)!).filter((item: StudentInfo | null) => item != null) as StudentInfo[];
+			} else if (responseData != null) {
+				// 如果是对象，先解析对象，再获取 data 属性
+				const parsed = parse<StudentResponseData>(responseData);
+				if (parsed != null && parsed.data != null && Array.isArray(parsed.data)) {
+					students = parsed.data.map((item: any) => parse<StudentInfo>(item)!).filter((item: StudentInfo | null) => item != null) as StudentInfo[];
+				}
 			}
 			
 			this.setStudents(students);
