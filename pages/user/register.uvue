@@ -246,9 +246,6 @@ const disabled = computed(() => {
 
 // 短信发送成功
 function onSmsSuccess() {
-	ui.showToast({
-		message: t("验证码已发送")
-	});
 }
 
 // 打开短信验证码组件
@@ -308,9 +305,9 @@ async function toRegister() {
 			const resToken = resData["token"] as string | null;
 			
 			if (resUser != null && resToken != null) {
-				// 设置用户信息
+			// 设置用户信息
 				user.set(resUser);
-				// 设置token（自动登录）
+			// 设置token（自动登录）
 				const expireVal = resData["expire"] as number | null;
 				const refreshTokenVal = resData["refreshToken"] as string | null;
 				const refreshExpireVal = resData["refreshExpire"] as number | null;
@@ -318,33 +315,33 @@ async function toRegister() {
 				const expire = expireVal != null && expireVal > 0 ? expireVal : 86400; // 默认24小时过期
 				const refreshToken = refreshTokenVal != null && refreshTokenVal != "" ? refreshTokenVal : resToken;
 				const refreshExpire = refreshExpireVal != null && refreshExpireVal > 0 ? refreshExpireVal : 2592000; // 默认30天过期
-				
-				user.setToken({
+			
+			user.setToken({
 					token: resToken,
-					expire: expire,
-					refreshToken: refreshToken,
-					refreshExpire: refreshExpire
-				});
+				expire: expire,
+				refreshToken: refreshToken,
+				refreshExpire: refreshExpire
+			});
 
-				// 保存注册/登录的手机号，方便下次登录时自动填充
+			// 保存注册/登录的手机号，方便下次登录时自动填充
 				const userPhone = resUser["phone"] as string | null;
 				if (userPhone != null && userPhone != "") {
 					storage.set(STORAGE_KEY_LAST_PHONE, userPhone, 0);
-				}
+			}
 
-				ui.showToast({
-					message: t("注册成功")
+			ui.showToast({
+				message: t("注册成功")
+			});
+
+			// 注册成功后已自动登录，直接跳转到首页
+			setTimeout(() => {
+				router.push({
+					path: router.defaultPath("home"),
+					mode: "reLaunch"
 				});
-
-				// 注册成功后已自动登录，直接跳转到首页
-				setTimeout(() => {
-					router.push({
-						path: router.defaultPath("home"),
-						mode: "reLaunch"
-					});
-					// 触发登录后回调
-					uni.$emit("afterLogin");
-				}, 500);
+				// 触发登录后回调
+				uni.$emit("afterLogin");
+			}, 500);
 			} else {
 				ui.showToast({
 					message: t("注册失败，返回数据异常")

@@ -10,7 +10,7 @@
 				<view class="flex flex-row items-center justify-center">
 					<cl-icon name="money-cny-circle-line" :size="90" color="primary"></cl-icon>
 					<view class="ml-2">
-						<cl-text :pt="{ className: '!text-2xl font-bold' }">{{ priceConfig != null && priceConfig.price_per_hour != null && priceConfig.price_per_hour != "" ? priceConfig.price_per_hour : '0.01' }}</cl-text>
+						<cl-text :pt="{ className: '!text-2xl font-bold' }">{{ getPricePerHour() }}</cl-text>
 						<cl-text color="info" :pt="{ className: '!text-sm' }">每小时咨询价格</cl-text>
 					</view>
 				</view>
@@ -40,9 +40,15 @@
 			<!-- 购买说明 -->
 			<view class="bg-white dark:!bg-surface-700 rounded-xl p-4 mb-4">
 				<cl-text :pt="{ className: '!text-sm text-surface-500' }">
-					• 咨询服务由专业导师提供一对一指导<br/>
-					• 购买后可在有效期内使用<br/>
-					• 支持支付宝扫码支付<br/>
+					• 咨询服务由专业导师提供一对一指导
+				</cl-text>
+				<cl-text :pt="{ className: '!text-sm text-surface-500' }">
+					• 购买后可在有效期内使用
+				</cl-text>
+				<cl-text :pt="{ className: '!text-sm text-surface-500' }">
+					• 支持支付宝扫码支付
+				</cl-text>
+				<cl-text :pt="{ className: '!text-sm text-surface-500' }">
 					• 如有问题请联系客服
 				</cl-text>
 			</view>
@@ -116,12 +122,13 @@ import { ref, onMounted, nextTick } from "vue";
 import { useUi } from "@/uni_modules/cool-ui";
 import { t } from "@/locale";
 import { ConsultationService } from "@/cool/service/consultation";
-import type { ConsultationPriceConfig, CurrentOrder, CreateOrderRequest } from "@/types/habit";
+import { parse } from "@/cool/utils";
+import type { ConsultationPriceConfig, CurrentOrder, CreateOrderRequest, CreateOrderResponse, ConsultationOrder, PaymentInfo, PaymentQRCode, PaymentStatusResponse } from "@/types/habit";
 
 const ui = useUi();
 
 // 价格配置
-const priceConfig = ref<ConsultationPriceConfig | null>(null);
+const priceConfig = ref<any | null>(null);
 
 // 选中的时长
 const selectedHours = ref<number>(1);
@@ -132,11 +139,75 @@ const qrCodeRef = ref<ClQrcodeComponentPublicInstance | null>(null);
 // 当前订单信息
 const currentOrder = ref<CurrentOrder | null>(null);
 
+// 辅助函数：安全获取每小时价格
+function getPricePerHour(): string {
+	if (priceConfig.value == null) {
+		console.log('getPricePerHour - priceConfig.value 为 null');
+		return '0.01';
+	}
+	const config = priceConfig.value as any;
+	console.log('getPricePerHour - config:', config);
+	
+	// 使用索引访问方式，适用于 UTSJSONObject 和已解析的对象
+	let pricePerHour: string | null = null;
+	
+	// #ifdef APP-ANDROID
+	// 在 Android 上，先转换为 UTSJSONObject 再使用索引访问
+	try {
+		const configObj = config as UTSJSONObject;
+		pricePerHour = configObj["price_per_hour"] as string | null;
+		console.log('getPricePerHour - Android 索引访问结果:', pricePerHour);
+	} catch (e) {
+		// 如果转换失败，说明已经是解析后的类型，使用类型断言访问
+		const parsedConfig = config as ConsultationPriceConfig;
+		pricePerHour = parsedConfig.price_per_hour as string | null;
+		console.log('getPricePerHour - Android 类型断言结果:', pricePerHour);
+	}
+	// #endif
+	
+	// #ifndef APP-ANDROID
+	// 在其他平台上，直接访问属性
+	const parsedConfig = config as ConsultationPriceConfig;
+	pricePerHour = parsedConfig.price_per_hour as string | null;
+	console.log('getPricePerHour - 其他平台结果:', pricePerHour);
+	// #endif
+	
+	const result = pricePerHour != null && pricePerHour != "" ? pricePerHour : '0.01';
+	console.log('getPricePerHour - 最终结果:', result);
+	return result;
+}
+
 // 计算总价格
 function calculateTotalPrice(hours: number): string {
-	if (hours == null || hours <= 0 || priceConfig.value == null) return '0.00';
-	const total = parseFloat(priceConfig.value.price_per_hour) * hours;
-	return total.toFixed(2);
+	console.log('calculateTotalPrice - hours:', hours);
+	console.log('calculateTotalPrice - priceConfig.value:', priceConfig.value);
+	
+	if (hours == null || hours <= 0) {
+		console.log('calculateTotalPrice - hours 无效，返回 0.00');
+		return '0.00';
+	}
+	
+	if (priceConfig.value == null) {
+		console.log('calculateTotalPrice - priceConfig.value 为 null，返回 0.00');
+		return '0.00';
+	}
+	
+	const pricePerHour = getPricePerHour();
+	console.log('calculateTotalPrice - pricePerHour:', pricePerHour);
+	
+	// 如果 pricePerHour 是默认值 '0.01'，说明价格配置可能没有正确加载
+	// 但仍然应该计算，因为 '0.01' 可能是真实的价格
+	const priceValue = parseFloat(pricePerHour);
+	if (isNaN(priceValue)) {
+		console.log('calculateTotalPrice - pricePerHour 无法转换为数字，返回 0.00');
+		return '0.00';
+	}
+	
+	const total = priceValue * hours;
+	console.log('calculateTotalPrice - total:', total);
+	const result = total.toFixed(2);
+	console.log('calculateTotalPrice - result:', result);
+	return result;
 }
 
 // 支付二维码相关
@@ -167,44 +238,231 @@ async function createOrder() {
 			payment_channel: 'qr'
 		};
 
-		const response = await ConsultationService.createOrder(orderData);
+		const response: any = await ConsultationService.createOrder(orderData);
 		
 		ui.hideLoading();
 		
-		// 保存当前订单信息
-		const orderResponse = response as UTSJSONObject;
+		// 使用 parse 函数转换响应数据
+		const orderResponse = parse<CreateOrderResponse>(response);
 		if (orderResponse != null) {
-			const orderData = orderResponse["order"] as UTSJSONObject | null;
-			const paymentData = orderResponse["payment"] as UTSJSONObject | null;
-			if (orderData != null) {
-				const orderNo = orderData["order_no"] as string | null;
-				const amount = orderData["total_amount"] as string | null;
+			// 安全访问 order 和 payment 属性
+			const responseData = orderResponse as any;
+			let orderValue: any = {} as any;
+			let paymentValue: any = {} as any;
+			
+			// #ifdef APP-ANDROID
+			// 在 Android 上，使用 UTSJSONObject 索引访问
+			try {
+				const responseObj = responseData as UTSJSONObject;
+				const orderVal = responseObj["order"];
+				const paymentVal = responseObj["payment"];
+				orderValue = orderVal != null ? orderVal as any : {} as any;
+				paymentValue = paymentVal != null ? paymentVal as any : {} as any;
+			} catch (e) {
+				// 如果转换失败，说明已经是解析后的类型，使用类型断言访问
+				const parsedResponse = responseData as CreateOrderResponse;
+				orderValue = parsedResponse.order != null ? parsedResponse.order as any : {} as any;
+				paymentValue = parsedResponse.payment != null ? parsedResponse.payment as any : {} as any;
+			}
+			// #endif
+			
+			// #ifndef APP-ANDROID
+			// 在其他平台上，使用类型断言访问属性
+			const parsedResponse = responseData as CreateOrderResponse;
+			orderValue = parsedResponse.order != null ? parsedResponse.order as any : {} as any;
+			paymentValue = parsedResponse.payment != null ? parsedResponse.payment as any : {} as any;
+			// #endif
+			
+			// 获取订单信息
+			if (orderValue != null) {
+				// #ifdef APP-ANDROID
+				// 在 Android 上，使用索引访问
+				try {
+					const orderObj = orderValue as UTSJSONObject;
+					const orderNo = orderObj["order_no"] as string | null;
+					const amount = orderObj["total_amount"] as string | null;
+					if (orderNo != null && amount != null) {
+						currentOrder.value = {
+							orderNo: orderNo,
+							amount: amount
+						} as CurrentOrder;
+					}
+				} catch (e) {
+					// 如果转换失败，使用类型断言访问属性
+					const parsedOrder = orderValue as ConsultationOrder;
+					const orderNo = parsedOrder.order_no as string | null;
+					const amount = parsedOrder.total_amount as string | null;
+					if (orderNo != null && amount != null) {
+						currentOrder.value = {
+							orderNo: orderNo,
+							amount: amount
+						} as CurrentOrder;
+					}
+				}
+				// #endif
+				
+				// #ifndef APP-ANDROID
+				// 使用类型断言访问属性
+				const parsedOrder = orderValue as ConsultationOrder;
+				const orderNo = parsedOrder.order_no as string | null;
+				const amount = parsedOrder.total_amount as string | null;
 				if (orderNo != null && amount != null) {
 					currentOrder.value = {
 						orderNo: orderNo,
 						amount: amount
 					} as CurrentOrder;
 				}
+				// #endif
 			}
 			
 			// 显示支付二维码
-			if (paymentData != null) {
-				const paymentUrl = paymentData["payment_url"] as string | null;
-				if (paymentUrl != null && paymentUrl != "") {
-					showPaymentQR(paymentUrl);
+			if (paymentValue != null) {
+				// #ifdef APP-ANDROID
+				// 在 Android 上，使用索引访问
+				try {
+					const paymentObj = paymentValue as UTSJSONObject;
+					const paymentUrlValue = paymentObj["payment_url"] as string | null;
+					if (paymentUrlValue != null && paymentUrlValue != "") {
+						showPaymentQR(paymentUrlValue);
+					} else {
+						// 尝试从 qr_code 中获取
+						const qrCode = paymentObj["qr_code"] as any;
+						if (qrCode != null) {
+							const qrCodeObj = qrCode as UTSJSONObject;
+							const qrCodeUrl = qrCodeObj["qr_code"] as string | null;
+							if (qrCodeUrl != null && qrCodeUrl != "") {
+								showPaymentQR(qrCodeUrl);
+							}
+						}
+					}
+				} catch (e) {
+					// 如果转换失败，使用类型断言访问属性
+					const parsedPayment = paymentValue as PaymentInfo;
+					const paymentUrlValue = parsedPayment.payment_url as string | null;
+					if (paymentUrlValue != null && paymentUrlValue != "") {
+						showPaymentQR(paymentUrlValue);
+					} else {
+						const qrCode = parsedPayment.qr_code as any;
+						if (qrCode != null) {
+							// #ifdef APP-ANDROID
+							// 在 Android 上，使用索引访问
+							try {
+								const qrCodeObj = qrCode as UTSJSONObject;
+								const qrCodeUrl = qrCodeObj["qr_code"] as string | null;
+								if (qrCodeUrl != null && qrCodeUrl != "") {
+									showPaymentQR(qrCodeUrl);
+								}
+							} catch (e) {
+								// 如果转换失败，使用类型断言访问
+								const parsedQRCode = qrCode as PaymentQRCode;
+								const qrCodeUrl = parsedQRCode.qr_code as string | null;
+								if (qrCodeUrl != null && qrCodeUrl != "") {
+									showPaymentQR(qrCodeUrl);
+								}
+							}
+							// #endif
+							
+							// #ifndef APP-ANDROID
+							// 使用类型断言访问属性
+							const parsedQRCode = qrCode as PaymentQRCode;
+							const qrCodeUrl = parsedQRCode.qr_code as string | null;
+							if (qrCodeUrl != null && qrCodeUrl != "") {
+								showPaymentQR(qrCodeUrl);
+							}
+							// #endif
+						}
+					}
 				}
+				// #endif
+				
+				// #ifndef APP-ANDROID
+				// 使用类型断言访问属性
+				const parsedPayment = paymentValue as PaymentInfo;
+				const paymentUrlValue = parsedPayment.payment_url as string | null;
+				if (paymentUrlValue != null && paymentUrlValue != "") {
+					showPaymentQR(paymentUrlValue);
+				} else {
+					const qrCode = parsedPayment.qr_code as any;
+					if (qrCode != null) {
+						// #ifdef APP-ANDROID
+						// 在 Android 上，使用索引访问
+						try {
+							const qrCodeObj = qrCode as UTSJSONObject;
+							const qrCodeUrl = qrCodeObj["qr_code"] as string | null;
+							if (qrCodeUrl != null && qrCodeUrl != "") {
+								showPaymentQR(qrCodeUrl);
+							}
+						} catch (e) {
+							// 如果转换失败，使用类型断言访问
+							const parsedQRCode = qrCode as PaymentQRCode;
+							const qrCodeUrl = parsedQRCode.qr_code as string | null;
+							if (qrCodeUrl != null && qrCodeUrl != "") {
+								showPaymentQR(qrCodeUrl);
+							}
+						}
+						// #endif
+						
+						// #ifndef APP-ANDROID
+						// 使用类型断言访问属性
+						const parsedQRCode = qrCode as PaymentQRCode;
+						const qrCodeUrl = parsedQRCode.qr_code as string | null;
+						if (qrCodeUrl != null && qrCodeUrl != "") {
+							showPaymentQR(qrCodeUrl);
+						}
+						// #endif
+					}
+				}
+				// #endif
 			}
 		}
 		
 	} catch (error: any) {
 		ui.hideLoading();
 		console.error('创建订单失败:', error);
-		const errObj = error as UTSJSONObject | null;
-		let errMsg: string | null | undefined = null;
-		if (errObj != null && errObj.hasOwnProperty("message")) {
-			errMsg = errObj["message"] as string | null | undefined;
+		
+		// 安全获取错误信息
+		let errMsg: string | null = null;
+		try {
+			// 尝试作为对象访问 message 属性
+			const errorObj = error as any;
+			if (errorObj != null && typeof errorObj === 'object') {
+				// #ifdef APP-ANDROID
+				// 在 Android 上，尝试作为 UTSJSONObject 访问
+				try {
+					const errJson = errorObj as UTSJSONObject;
+					errMsg = errJson["message"] as string | null;
+				} catch (e) {
+					// 如果转换失败，使用索引访问
+					// #ifdef APP-ANDROID
+					// 在 Android 上，尝试作为 UTSJSONObject 访问
+					try {
+						const errJson = errorObj as UTSJSONObject;
+						errMsg = errJson["message"] as string | null;
+					} catch (e2) {
+						// 如果转换失败，说明可能不是 UTSJSONObject，返回 null
+						errMsg = null;
+					}
+					// #endif
+					
+					// #ifndef APP-ANDROID
+					// 在其他平台上，使用索引访问
+					const errAny = errorObj as any;
+					errMsg = errAny["message"] as string | null;
+					// #endif
+				}
+				// #endif
+				
+				// #ifndef APP-ANDROID
+				// 使用索引访问属性
+				const errAny = errorObj as any;
+				errMsg = errAny["message"] as string | null;
+				// #endif
+			}
+		} catch (e) {
+			// 如果获取失败，使用默认消息
 		}
-		const errorMessage: string = (errMsg != null && errMsg != "" ? errMsg : '创建订单失败，请重试') as string;
+		
+		const errorMessage = errMsg != null && errMsg != "" ? errMsg : '创建订单失败，请重试';
 		ui.showToast({ 
 			message: errorMessage
 		});
@@ -227,12 +485,34 @@ async function confirmPayment() {
 		ui.showLoading('验证支付状态...');
 		
 		// 检查支付状态
-		const paymentStatusData = await ConsultationService.checkPaymentStatus(currentOrder.value.orderNo);
-		const paymentStatus = paymentStatusData as UTSJSONObject;
+		const paymentStatusData: any = await ConsultationService.checkPaymentStatus(currentOrder.value.orderNo);
+		// 使用 parse 函数转换数据，在 Android 平台上会自动处理 UTSJSONObject
+		const paymentStatus = parse<PaymentStatusResponse>(paymentStatusData);
 		
 		ui.hideLoading();
 		
-		const isPaid = paymentStatus != null && paymentStatus["is_paid"] === true;
+		// 安全获取 is_paid 属性
+		let isPaid = false;
+		if (paymentStatus != null) {
+			// #ifdef APP-ANDROID
+			// 在 Android 上，使用索引访问
+			try {
+				const statusObj = paymentStatus as UTSJSONObject;
+				const isPaidValue = statusObj["is_paid"];
+				isPaid = isPaidValue === true;
+			} catch (e) {
+				// 如果转换失败，使用类型断言访问
+				const parsedStatus = paymentStatus as PaymentStatusResponse;
+				isPaid = parsedStatus.is_paid === true;
+			}
+			// #endif
+			
+			// #ifndef APP-ANDROID
+			// 使用类型断言访问属性
+			const parsedStatus = paymentStatus as PaymentStatusResponse;
+			isPaid = parsedStatus.is_paid === true;
+			// #endif
+		}
 		if (isPaid) {
 			// 支付成功，更新用户信息和dashboard数据
 			try {
@@ -356,7 +636,16 @@ async function saveQRCode() {
 // 加载价格配置
 async function loadPriceConfig() {
 	try {
-		priceConfig.value = await ConsultationService.getPriceConfig();
+		console.log('loadPriceConfig - 开始加载价格配置');
+		const data: any = await ConsultationService.getPriceConfig();
+		console.log('loadPriceConfig - 返回数据:', data);
+		console.log('loadPriceConfig - 返回数据类型:', typeof data);
+		
+		// 使用 parse 函数转换数据，在 Android 平台上会自动处理 UTSJSONObject
+		const parsed = parse<ConsultationPriceConfig>(data);
+		console.log('loadPriceConfig - 解析后的数据:', parsed);
+		priceConfig.value = parsed != null ? parsed : data;
+		console.log('loadPriceConfig - 设置后的 priceConfig.value:', priceConfig.value);
 	} catch (error) {
 		console.error('加载价格配置失败:', error);
 		ui.showToast({ message: '加载价格配置失败' });

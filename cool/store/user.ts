@@ -39,9 +39,7 @@ export class User {
 		if (this.token != null) {
 			await request({ url: '/user/profile', method: 'GET' })
 				.then((res) => {
-					if (res != null) {
 						this.set(res);
-					}
 				})
 				.catch(() => {
 					// this.logout();
@@ -139,13 +137,13 @@ export class User {
 		return new Promise((resolve, reject) => {
 			request({ url: '/auth/refresh', method: 'POST' })
 				.then((res) => {
-					if (res != null) {
 						const token = parse<AuthToken>(res);
 
 						if (token != null) {
 							this.setToken(token);
 							resolve(token.token);
-						}
+					} else {
+						reject({ message: "解析token失败" } as any);
 					}
 				})
 				.catch((err) => {

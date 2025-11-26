@@ -46,28 +46,20 @@
 			<!-- 任务类型 -->
 			<view class="mb-4">
 				<cl-text :pt="{ className: '!text-base font-bold mb-3' }">任务类型 *</cl-text>
-				<view class="flex flex-row justify-between gap-3">
+				<view class="flex flex-row justify-between">
 					<cl-radio 
 						v-model="form.habit_type" 
 						:value="1"
-						:pt="{ className: '!p-4 !rounded-xl !border-2 !border-surface-200 dark:!border-surface-600 !bg-white dark:!bg-surface-800 flex-1' }"
+						:pt="{ className: '!p-4 !rounded-xl !border-2 !border-surface-200 dark:!border-surface-600 !bg-white dark:!bg-surface-800 flex-1 mr-1' }"
 					>
-						<view class="flex flex-row items-center px-1">
-							<view class="flex-1">
-								<cl-text color="surface-400" :pt="{ className: '!text-sm font-medium' }">戒掉坏习惯</cl-text>
-							</view>
-						</view>
+					戒掉坏习惯
 					</cl-radio>
 					<cl-radio 
 						v-model="form.habit_type" 
 						:value="2"
-						:pt="{ className: '!p-4 !rounded-xl !border-2 !border-surface-200 dark:!border-surface-600 !bg-white dark:!bg-surface-800 flex-1' }"
+						:pt="{ className: '!p-4 !rounded-xl !border-2 !border-surface-200 dark:!border-surface-600 !bg-white dark:!bg-surface-800 flex-1 ml-1' }"
 					>
-						<view class="flex flex-row items-center px-1">
-							<view class="flex-1">
-								<cl-text color="surface-400" :pt="{ className: '!text-sm font-medium' }">养成好习惯</cl-text>
-							</view>
-						</view>
+					养成好习惯
 					</cl-radio>
 				</view>
 			</view>
@@ -75,28 +67,20 @@
 			<!-- 打卡频次 -->
 			<view class="mb-4">
 				<cl-text :pt="{ className: '!text-base font-bold mb-3' }">打卡频次 *</cl-text>
-				<view class="flex flex-row justify-between gap-3">
+				<view class="flex flex-row justify-between">
 					<cl-radio 
 						v-model="form.frequency" 
 						:value="1"
-						:pt="{ className: '!p-4 !rounded-xl !border-2 !border-surface-200 dark:!border-surface-600 !bg-white dark:!bg-surface-800 flex-1' }"
+						:pt="{ className: '!p-4 !rounded-xl !border-2 !border-surface-200 dark:!border-surface-600 !bg-white dark:!bg-surface-800 flex-1 mr-1' }"
 					>
-						<view class="w-full flex flex-row items-center px-1">
-							<view class="flex-1">
-								<cl-text color="surface-400" :pt="{ className: '!text-sm font-medium' }">每日一次</cl-text>
-							</view>
-						</view>
+					每日一次
 					</cl-radio>
 					<cl-radio 
 						v-model="form.frequency" 
 						:value="2"
-						:pt="{ className: '!p-4 !rounded-xl !border-2 !border-surface-200 dark:!border-surface-600 !bg-white dark:!bg-surface-800 flex-1' }"
+						:pt="{ className: '!p-4 !rounded-xl !border-2 !border-surface-200 dark:!border-surface-600 !bg-white dark:!bg-surface-800 flex-1 ml-1' }"
 					>
-						<view class="w-full flex flex-row items-center px-1">
-							<view class="flex-1">
-								<cl-text color="surface-400" :pt="{ className: '!text-sm font-medium' }">每周一次</cl-text>
-							</view>
-						</view>
+					每周一次
 					</cl-radio>
 				</view>
 			</view>
@@ -112,20 +96,26 @@
 					:border="false"
 					:pt="{
 						className: parseClass([
-							'!rounded-xl !p-4',
+							'',
 							[isDark, '!bg-surface-70', '!bg-white']
 						])
 					}"
 				></cl-input-number>
-				<cl-text color="info" :pt="{ className: '!text-xs mt-1' }">完成{{ form.total_times }}次后任务完成</cl-text>
+				<cl-text color="info" :pt="{ className: '!text-xs mt-2' }">完成{{ form.total_times }}次后任务完成</cl-text>
 			</view>
 
 			<!-- 创建说明 -->
 			<view class="bg-surface-50 dark:!bg-surface-700 rounded-xl p-4 mb-4">
-				<cl-text :pt="{ className: '!text-sm text-surface-500' }">
-					• 任务创建后不可修改，请仔细填写<br/>
-					• 戒习惯用蓝色标识，行习惯用绿色标识<br/>
-					• 建议设置合理的总次数，避免过高或过低<br/>
+				<cl-text :pt="{ className: '!text-sm text-surface-500 dark:!text-white' }">
+					• 任务创建后不可修改，请仔细填写
+				</cl-text>
+				<cl-text :pt="{ className: '!text-sm text-surface-500 dark:!text-white' }">
+					• 戒习惯用蓝色标识，行习惯用绿色标识
+				</cl-text>
+				<cl-text :pt="{ className: '!text-sm text-surface-500 dark:!text-white' }">
+					• 建议设置合理的总次数，避免过高或过低
+				</cl-text>
+				<cl-text :pt="{ className: '!text-sm text-surface-500 dark:!text-white' }">
 					• 坚持完成所有次数即可达成目标
 				</cl-text>
 			</view>

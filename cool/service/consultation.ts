@@ -10,7 +10,7 @@ export class ConsultationService {
   /**
    * 获取咨询服务价格配置
    */
-  static async getPriceConfig(): Promise<ConsultationPriceConfig> {
+  static async getPriceConfig(): Promise<any> {
     return await request({ 
       url: '/consultation/price-config', 
       method: 'GET' 
@@ -31,7 +31,7 @@ export class ConsultationService {
   /**
    * 检查订单支付状态
    */
-  static async checkPaymentStatus(orderNo: string): Promise<PaymentStatusResponse> {
+  static async checkPaymentStatus(orderNo: string): Promise<any> {
     return await request({ 
       url: `/consultation/check-payment-status?order_no=${orderNo}`, 
       method: 'GET'

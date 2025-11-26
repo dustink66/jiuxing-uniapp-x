@@ -7,9 +7,9 @@ import type { IntegralRecord, IntegralStats, IntegralHistoryResponse } from "@/t
 export class IntegralService {
 	/**
 	 * 获取积分信息
-	 * @returns Promise<IntegralStats>
+	 * @returns Promise<any>
 	 */
-	static async getIntegralStats(): Promise<IntegralStats> {
+	static async getIntegralStats(): Promise<any> {
 		return await request({
 			url: "/user/integral",
 			method: "GET"
@@ -20,9 +20,9 @@ export class IntegralService {
 	 * 获取积分记录
 	 * @param page 页码，从1开始
 	 * @param perPage 每页数量，默认20
-	 * @returns Promise<IntegralHistoryResponse>
+	 * @returns Promise<any>
 	 */
-	static async getIntegralHistory(page: number = 1, perPage: number = 20): Promise<IntegralHistoryResponse> {
+	static async getIntegralHistory(page: number = 1, perPage: number = 20): Promise<any> {
 		return await request({
 			url: "/user/integral/history",
 			method: "GET",

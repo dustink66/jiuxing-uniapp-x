@@ -53,7 +53,7 @@
 					<view class="flex flex-col items-center justify-center">
 						<cl-rolling-number
 							:pt="{ className: '!text-xl' }"
-							:value="dashboardData != null && dashboardData.stats != null && dashboardData.stats.tasks != null && dashboardData.stats.tasks.total != null ? dashboardData.stats.tasks.total : 0"
+						:value="getTaskTotal()"
 						></cl-rolling-number>
 						<cl-text :pt="{ className: 'mt-1 !text-xs' }" color="info">{{
 							t("任务数")
@@ -65,7 +65,7 @@
 					<view class="flex flex-col items-center justify-center">
 						<cl-rolling-number
 							:pt="{ className: '!text-xl' }"
-							:value="dashboardData != null && dashboardData.stats != null && dashboardData.stats.checkins != null && dashboardData.stats.checkins.consecutive_days != null ? dashboardData.stats.checkins.consecutive_days : 0"
+						:value="getConsecutiveDays()"
 						></cl-rolling-number>
 						<cl-text :pt="{ className: 'mt-1 !text-xs' }" color="info">{{
 							t("连续天数")
@@ -172,9 +172,9 @@
 							>
 
 							<cl-badge
-								v-if="dashboardData != null && dashboardData.stats != null && dashboardData.stats.activities != null && dashboardData.stats.activities.attended != null && dashboardData.stats.activities.attended > 0"
+							v-if="getAttendedActivities() > 0"
 								type="primary"
-								:value="dashboardData != null && dashboardData.stats != null && dashboardData.stats.activities != null && dashboardData.stats.activities.attended != null ? dashboardData.stats.activities.attended : 0"
+							:value="getAttendedActivities()"
 								position
 								:pt="{ className: '!right-6' }"
 							></cl-badge>
@@ -257,7 +257,14 @@ const reminderEnabled = ref(true);
 const notificationEnabled = ref(true);
 
 // 使用store中的数据
-const dashboardData = computed<DashboardData | null>(() => dashboard.dashboardData.value);
+const dashboardData = computed(() => {
+	const value = dashboard.dashboardData.value;
+	if (value != null) {
+		return value as any;
+	}
+	// 返回空对象而不是 null，避免 Android 平台上的 NullPointerException
+	return {} as any;
+});
 
 // 创建本地的 userInfo computed，避免模板中的类型问题
 const localUserInfo = computed(() => userInfo.value);
@@ -286,6 +293,69 @@ function getUserLevelName(): string {
 function getUserIntegral(): number {
 	const info = userInfo.value;
 	return info != null && info.integral != null ? info.integral : 0;
+}
+
+// 辅助函数：安全获取 dashboard 数据属性
+function getDashboardStats(): any {
+	const data = dashboardData.value;
+	if (data == null) {
+		return {} as any;
+	}
+	const dataObj = data as UTSJSONObject;
+	const statsValue = dataObj["stats"];
+	// 如果 stats 为 null，返回空对象，避免 NullPointerException
+	if (statsValue == null) {
+		return {} as any;
+	}
+	return statsValue as any;
+}
+
+function getTaskTotal(): number {
+	const stats = getDashboardStats();
+	if (stats == null) {
+		return 0;
+	}
+	const statsObj = stats as UTSJSONObject;
+	const tasksValue = statsObj["tasks"];
+	// 如果 tasks 为 null，返回 0，避免 NullPointerException
+	if (tasksValue == null) {
+		return 0;
+	}
+	const tasksObj = tasksValue as UTSJSONObject;
+	const total = tasksObj["total"] as number | null;
+	return total != null ? total : 0;
+}
+
+function getConsecutiveDays(): number {
+	const stats = getDashboardStats();
+	if (stats == null) {
+		return 0;
+	}
+	const statsObj = stats as UTSJSONObject;
+	const checkinsValue = statsObj["checkins"];
+	// 如果 checkins 为 null，返回 0，避免 NullPointerException
+	if (checkinsValue == null) {
+		return 0;
+	}
+	const checkinsObj = checkinsValue as UTSJSONObject;
+	const consecutiveDays = checkinsObj["consecutive_days"] as number | null;
+	return consecutiveDays != null ? consecutiveDays : 0;
+}
+
+function getAttendedActivities(): number {
+	const stats = getDashboardStats();
+	if (stats == null) {
+		return 0;
+	}
+	const statsObj = stats as UTSJSONObject;
+	const activitiesValue = statsObj["activities"];
+	// 如果 activities 为 null，返回 0，避免 NullPointerException
+	if (activitiesValue == null) {
+		return 0;
+	}
+	const activitiesObj = activitiesValue as UTSJSONObject;
+	const attended = activitiesObj["attended"] as number | null;
+	return attended != null ? attended : 0;
 }
 
 // 页面跳转方法

@@ -225,7 +225,7 @@ async function loadData() {
 			router.login();
 			return;
 		}
-
+		
 		// 如果用户已经是导师，不需要加载申请状态
 		if (user.info.value?.is_mentor === true) {
 			return;

@@ -30,11 +30,13 @@
 						<view class="flex flex-row items-center">
 							<view class="w-3 h-3 rounded-full mr-3" :style="{ backgroundColor: getTaskStatusColor(task) }"></view>
 							<view class="flex-1">
-								<cl-text :pt="{ className: '!text-base font-bold' }">{{ getTaskTitle(task) }}
+								<view class="flex flex-row items-center">
+                  <cl-text :pt="{ className: '!text-base font-bold mr-3' }">{{ getTaskTitle(task) }}
+								  </cl-text>
 									<cl-text :pt="{ className: '!text-xs mt-1' }" :color="getTaskStatusTextColor(getTaskStatus(task))">
 									{{ getTaskStatusText(getTaskStatus(task)) }}
 								</cl-text>
-								</cl-text>
+                </view>
 								<cl-text color="surface-400" :pt="{ className: '!text-sm mt-1 dark:!text-surface-400' }">
 									{{ getTaskFrequency(task) === 1 ? '每日一次' : '每周一次' }} {{ getTaskCompletedTimes(task) }}/{{ getTaskTotalTimes(task) }}
 								</cl-text>
@@ -71,6 +73,7 @@ import { isMp, router, useStore } from "@/cool";
 import { ref, computed, onMounted } from "vue";
 import { useUi } from "@/uni_modules/cool-ui";
 import CustomTabbar from "@/components/tabbar.uvue";
+import type { TaskInfo } from "@/types/habit";
 
 const ui = useUi();
 const { user, task, checkin } = useStore();
@@ -92,61 +95,60 @@ const todayProgress = computed(() => {
 
 // 辅助函数：安全获取任务属性
 function getTaskId(task: any, index: number): number {
-	const taskObj = task as UTSJSONObject;
-	const id = taskObj["id"] as number | null;
-	return id != null ? id : index;
+	const taskInfo = task as TaskInfo;
+	return taskInfo?.id != null ? taskInfo.id : index;
 }
 
 function getTaskStatus(task: any): number {
-	const taskObj = task as UTSJSONObject;
-	return (taskObj["status"] as number | null) ?? 1;
+	const taskInfo = task as TaskInfo;
+	return taskInfo?.status != null ? taskInfo.status : 1;
 }
 
 function getTaskHabitType(task: any): number {
-	const taskObj = task as UTSJSONObject;
-	return (taskObj["habit_type"] as number | null) ?? 1;
+	const taskInfo = task as TaskInfo;
+	return taskInfo?.habit_type != null ? taskInfo.habit_type : 1;
 }
 
 function getTaskTitle(task: any): string {
-	const taskObj = task as UTSJSONObject;
-	return (taskObj["title"] as string | null) ?? "";
+	const taskInfo = task as TaskInfo;
+	return taskInfo?.title ?? "";
 }
 
 function getTaskDescription(task: any): string {
-	const taskObj = task as UTSJSONObject;
-	return (taskObj["description"] as string | null) ?? "";
+	const taskInfo = task as TaskInfo;
+	return taskInfo?.description ?? "";
 }
 
 function getTaskFrequency(task: any): number {
-	const taskObj = task as UTSJSONObject;
-	return (taskObj["frequency"] as number | null) ?? 1;
+	const taskInfo = task as TaskInfo;
+	return taskInfo?.frequency != null ? taskInfo.frequency : 1;
 }
 
 function getTaskCompletedTimes(task: any): number {
-	const taskObj = task as UTSJSONObject;
-	return (taskObj["completed_times"] as number | null) ?? 0;
+	const taskInfo = task as TaskInfo;
+	return taskInfo?.completed_times != null ? taskInfo.completed_times : 0;
 }
 
 function getTaskTotalTimes(task: any): number {
-	const taskObj = task as UTSJSONObject;
-	return (taskObj["total_times"] as number | null) ?? 0;
+	const taskInfo = task as TaskInfo;
+	return taskInfo?.total_times != null ? taskInfo.total_times : 0;
 }
 
 // 方法
 function getTaskStatusColor(task: any): string {
 	const status = getTaskStatus(task);
-	// 如果任务失败，统一显示红色
+  // 如果任务失败，统一显示红色
 	if (status === 0) {
-		return '#e74c3c'; // 失败 - 红色
-	}
-	
-	// 根据habit_type显示不同颜色
+    return '#e74c3c'; // 失败 - 红色
+  }
+  
+  // 根据habit_type显示不同颜色
 	const habitType = getTaskHabitType(task);
 	switch (habitType) {
-		case 1: return '#3498db'; // 戒 - 蓝色
-		case 2: return '#2ecc71'; // 行 - 绿色
-		default: return '#95a5a6'; // 默认 - 灰色
-	}
+    case 1: return '#3498db'; // 戒 - 蓝色
+    case 2: return '#2ecc71'; // 行 - 绿色
+    default: return '#95a5a6'; // 默认 - 灰色
+  }
 }
 
 function getTaskStatusText(status: number): string {
@@ -161,7 +163,7 @@ function getTaskStatusText(status: number): string {
 function getTaskStatusTextColor(status: number): string {
   switch (status) {
     case 0: return 'error';
-    case 1: return 'warning';
+    case 1: return 'white';
     case 2: return 'success';
     default: return 'surface-400';
   }
@@ -222,9 +224,31 @@ async function loadData() {
     // 计算今日打卡数
     const today = new Date().toISOString().split('T')[0];
     const filteredCheckins = recentCheckins.value != null ? recentCheckins.value.filter((c: any) => {
-		const checkinObj = c as UTSJSONObject;
-		const checkinDate = checkinObj["checkin_date"] as string | null;
+		// #ifdef APP-ANDROID
+		// 在 Android 上，使用索引访问
+		try {
+			const checkinObj = c as UTSJSONObject;
+			const checkinDate = checkinObj["checkin_date"] as string | null;
+			return checkinDate === today;
+		} catch (e) {
+			// 如果转换失败，尝试再次转换为 UTSJSONObject
+			try {
+				const checkinInfo = c as UTSJSONObject;
+				const checkinDate = checkinInfo["checkin_date"] as string | null;
+				return checkinDate === today;
+			} catch (e2) {
+				// 如果还是失败，返回 false
+				return false;
+			}
+		}
+		// #endif
+		
+		// #ifndef APP-ANDROID
+		// 在其他平台上，使用索引访问
+		const checkinInfo = c as any;
+		const checkinDate = checkinInfo["checkin_date"] as string | null;
 		return checkinDate === today;
+		// #endif
 	}) : [];
     todayCheckins.value = filteredCheckins.length;
 
@@ -238,13 +262,71 @@ async function loadData() {
 
 // 辅助函数：获取打卡信息属性
 function getCheckinTaskId(checkin: any): number {
-	const checkinObj = checkin as UTSJSONObject;
-	return (checkinObj["task_id"] as number | null) ?? 0;
+	// #ifdef APP-ANDROID
+	// 在 Android 上，使用索引访问
+	try {
+		const checkinObj = checkin as UTSJSONObject;
+		const taskId = checkinObj["task_id"] as number | null;
+		return taskId != null ? taskId : 0;
+	} catch (e) {
+		// 如果转换失败，尝试再次转换为 UTSJSONObject
+		try {
+			const checkinInfo = checkin as UTSJSONObject;
+			const taskIdValue = checkinInfo["task_id"] as number | null;
+			return taskIdValue != null ? taskIdValue : 0;
+		} catch (e2) {
+			// 如果还是失败，返回 0
+			return 0;
+		}
+	}
+	// #endif
+	
+	// #ifndef APP-ANDROID
+	// 在其他平台上，使用索引访问
+	const checkinInfo = checkin as any;
+	const taskIdValue = checkinInfo["task_id"];
+	if (taskIdValue != null && typeof taskIdValue === 'number') {
+		return taskIdValue as number;
+	}
+	return 0;
+	// #endif
 }
 
 function getCheckinDate(checkin: any): string {
-	const checkinObj = checkin as UTSJSONObject;
-	return (checkinObj["checkin_date"] as string | null) ?? "";
+	// #ifdef APP-ANDROID
+	// 在 Android 上，使用索引访问
+	try {
+		const checkinObj = checkin as UTSJSONObject;
+		const checkinDate = checkinObj["checkin_date"] as string | null;
+		if (checkinDate != null) {
+			return checkinDate;
+		}
+		return "";
+	} catch (e) {
+		// 如果转换失败，尝试再次转换为 UTSJSONObject
+		try {
+			const checkinInfo = checkin as UTSJSONObject;
+			const checkinDate = checkinInfo["checkin_date"] as string | null;
+			if (checkinDate != null) {
+				return checkinDate;
+			}
+			return "";
+		} catch (e2) {
+			// 如果还是失败，返回空字符串
+			return "";
+		}
+	}
+	// #endif
+	
+	// #ifndef APP-ANDROID
+	// 在其他平台上，使用索引访问
+	const checkinInfo = checkin as any;
+	const checkinDate = checkinInfo["checkin_date"] as string | null;
+	if (checkinDate != null) {
+		return checkinDate as string;
+	}
+	return "";
+	// #endif
 }
 
 // 直接签到

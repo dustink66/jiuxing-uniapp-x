@@ -23,11 +23,6 @@ export type Response = {
 	data?: any;
 };
 
-// 请求队列（用于等待token刷新后继续请求）
-let requests: ((token: string) => void)[] = [];
-
-// 标记token是否正在刷新
-let isRefreshing = false;
 
 // 判断当前url是否忽略token校验
 const isIgnoreToken = (url: string) => {
@@ -249,46 +244,14 @@ export function request(options: RequestOptions): Promise<any> {
 			});
 		};
 
-		// 非刷新token接口才进行token有效性校验
-		if (!options.url.includes("/refreshToken")) {
+		// 检查token是否过期
 			if (!isNull(Authorization)) {
 				// 判断token是否过期
 				if (storage.isExpired("token")) {
-					// 判断refreshToken是否过期
-					if (storage.isExpired("refreshToken")) {
-						// 刷新token也过期，直接退出登录
+				// token过期，直接退出登录并拒绝请求
 						user.logout();
-						return;
-					}
-
-					// 如果当前没有在刷新token，则发起刷新
-					if (!isRefreshing) {
-						isRefreshing = true;
-						user.refreshToken()
-							.then((token) => {
-								// 刷新成功后，执行队列中的请求
-								requests.forEach((cb) => cb(token));
-								requests = [];
-								isRefreshing = false;
-							})
-							.catch((err) => {
-								reject(err);
-								user.logout();
-							});
-					}
-
-					// 将当前请求加入队列，等待token刷新后再执行
-					new Promise((resolve) => {
-						requests.push((token: string) => {
-							// 重新设置token
-							Authorization = token;
-							next();
-							resolve(true);
-						});
-					});
-					// 此处return，等待token刷新
+				reject({ message: t("登录已过期，请重新登录"), code: 401 } as Response);
 					return;
-				}
 			}
 		}
 

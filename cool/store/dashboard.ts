@@ -1,6 +1,7 @@
 // 自律习惯养成APP - 仪表板Store
 import { ref, computed } from "vue";
 import { request } from "../service";
+import { parse } from "../utils";
 import type { DashboardData } from "@/types/habit";
 import { task } from "./task";
 import { checkin } from "./checkin";
@@ -11,19 +12,25 @@ export class Dashboard {
 	/**
 	 * 仪表板数据，响应式对象
 	 */
-	dashboardData = ref<DashboardData | null>(null);
+	dashboardData = ref<any | null>(null);
 	
 	/**
 	 * 获取仪表板数据（从服务端拉取最新信息并更新本地）
-	 * @returns Promise<DashboardData>
+	 * @returns Promise<any>
 	 */
 	async getDashboard() {
 		try {
+			console.log('获取仪表板数据 - 开始请求');
 			const data = await request({ url: '/user/dashboard', method: 'GET' });
+			console.log('获取仪表板数据 - 返回结果:', data);
+			console.log('获取仪表板数据 - 返回结果类型:', typeof data);
+			
 			if (data != null) {
-				this.setDashboard(data as DashboardData);
+				// 直接设置数据，让 setDashboard 处理解析
+				this.setDashboard(data);
+				console.log('获取仪表板数据 - 设置完成，dashboardData:', this.dashboardData.value);
 			}
-			return this.dashboardData.value as DashboardData;
+			return this.dashboardData.value as any;
 		} catch (error) {
 			console.error("获取仪表板数据失败:", error);
 			throw error;
@@ -34,8 +41,16 @@ export class Dashboard {
 	 * 设置仪表板数据
 	 * @param data 仪表板数据对象
 	 */
-	setDashboard(data: DashboardData | null) {
-		this.dashboardData.value = data;
+	setDashboard(data: any) {
+		if (data == null) {
+			this.dashboardData.value = null;
+			return;
+		}
+		
+		// 使用 parse 函数转换数据，在 Android 平台上会自动处理 UTSJSONObject
+		// 如果 parse 返回 null，直接使用原始数据（在 Android 上可能是 UTSJSONObject）
+		const parsed = parse<DashboardData>(data);
+		this.dashboardData.value = parsed != null ? parsed : data;
 	}
 	
 	/**
@@ -96,4 +111,10 @@ export const dashboard = new Dashboard();
 /**
  * 仪表板数据，响应式对象
  */
-export const dashboardData = computed<DashboardData | null>(() => dashboard.dashboardData.value);
+export const dashboardData = computed(() => {
+	const value = dashboard.dashboardData.value;
+	if (value != null) {
+		return value as any;
+	}
+	return null as any;
+});

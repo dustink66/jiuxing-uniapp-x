@@ -27,7 +27,7 @@
 								</view>
 								<view class="flex-1">
 									<cl-text :pt="{ className: '!text-base font-bold' }">{{ record.description }}</cl-text>
-									<cl-text color="surface-400" :pt="{ className: '!text-sm mt-1' }">{{ formatDate(record.created_at) }}</cl-text>
+									<cl-text color="surface-400" :pt="{ className: '!text-sm mt-1 dark:!text-white' }">{{ formatDate(record.created_at) }}</cl-text>
 								</view>
 							</view>
 							<view class="flex flex-col items-end">
@@ -37,8 +37,8 @@
 								>
 									{{ record.change_amount > 0 ? '+' : '' }}{{ record.change_amount }}
 								</cl-text>
-								<cl-text color="surface-400" :pt="{ className: '!text-sm' }">
-									余额: {{ record.current_integral }}
+								<cl-text color="surface-400" :pt="{ className: '!text-sm dark:!text-white' }">
+									余额 {{ record.current_integral }}
 								</cl-text>
 							</view>
 						</view>
@@ -120,22 +120,69 @@ function formatDate(dateStr: string): string {
 async function loadIntegralHistory(page: number = 1) {
 	try {
 		loading.value = true;
-		const result = await IntegralService.getIntegralHistory(page);
-		const response = parse<IntegralHistoryResponse>(result);
+		const result: any = await IntegralService.getIntegralHistory(page);
 		
-		if (response != null) {
-			if (page === 1) {
-				integralHistory.value = response.data != null ? response.data : [];
-			} else {
-				if (response.data != null) {
-					integralHistory.value.push(...response.data);
-				}
-			}
-			
-			// 检查是否还有更多数据
-			hasMore.value = response.data != null && response.data.length >= 20;
-			currentPage.value = page;
+		// 处理分页数据结构：兼容数组或分页对象 { data: IntegralRecord[] }
+		let records: IntegralRecord[] = [];
+		
+		// 先解析响应结构
+		const response = parse<IntegralHistoryResponse>(result);
+		if (response == null) {
+			return;
 		}
+		
+		const responseData = response.data as any;
+		
+		// 获取实际的数组数据
+		let dataArray: any[] = [];
+		if (Array.isArray(responseData)) {
+			// 如果 data 是数组，直接使用
+			dataArray = responseData;
+		} else if (responseData != null) {
+			// 如果是分页对象，使用索引访问 data.data
+			const nestedDataObj = responseData as UTSJSONObject;
+			const nestedData = nestedDataObj["data"] as any;
+			if (nestedData != null && Array.isArray(nestedData)) {
+				dataArray = nestedData;
+			}
+		}
+		
+		// 解析数组中的每个元素
+		// #ifdef APP-ANDROID
+		// 在 Android 上，如果元素已经是解析后的类型，直接使用；否则使用 parse
+		records = dataArray.map((item: any) => {
+			if (item == null) {
+				return null;
+			}
+			// 尝试作为 UTSJSONObject 解析，如果失败则直接使用
+			try {
+				const itemObj = item as UTSJSONObject;
+				return itemObj.parse<IntegralRecord>();
+			} catch (e) {
+				// 如果转换失败，说明已经是解析后的类型，直接返回
+				return item as IntegralRecord;
+			}
+		}).filter((item: IntegralRecord | null) => item != null) as IntegralRecord[];
+		// #endif
+		
+		// #ifndef APP-ANDROID
+		records = dataArray.map((item: any) => {
+			if (item == null) {
+				return null;
+			}
+			return parse<IntegralRecord>(item);
+		}).filter((item: IntegralRecord | null) => item != null) as IntegralRecord[];
+		// #endif
+		
+		if (page === 1) {
+			integralHistory.value = records;
+		} else {
+			integralHistory.value.push(...records);
+		}
+		
+		// 检查是否还有更多数据
+		hasMore.value = records.length >= 20;
+		currentPage.value = page;
 	} catch (error) {
 		console.error('加载积分记录失败:', error);
 		ui.showToast({ message: '加载积分记录失败' });
@@ -154,7 +201,8 @@ function loadMore() {
 // 加载积分统计
 async function loadIntegralStats() {
 	try {
-		const result = await IntegralService.getIntegralStats();
+		const result: any = await IntegralService.getIntegralStats();
+		// 使用 parse 函数转换数据，在 Android 平台上会自动处理 UTSJSONObject
 		const stats = parse<IntegralStats>(result);
 		if (stats != null) {
 			integralStats.value = stats;
