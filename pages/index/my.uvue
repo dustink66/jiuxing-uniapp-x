@@ -430,6 +430,11 @@ onMounted(() => {
 	user.get();
 	loadDashboardData();
 });
+
+onShow(() => {
+	user.get();
+	loadDashboardData();
+});
 </script>
 
 <style lang="scss" scoped>

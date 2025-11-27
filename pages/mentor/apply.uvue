@@ -200,9 +200,13 @@ async function applyMentor() {
 		loading.value = true;
 		await MentorService.apply(form);
 		ui.showToast({
-			message: t("申请成功，已自动审核通过")
+			message: t("申请成功，请等待后台审核")
 		});
-		mentorStatus.value = 2;
+		setTimeout(() => {
+			uni.switchTab({
+				url: '/pages/index/my'
+			});
+		}, 1500);
 	} catch (error: any) {
 		const errorMsg = error != null && error.message != null && error.message != "" ? error.message : t("申请失败");
 		const errorMessage: string = errorMsg != null ? errorMsg : t("申请失败");

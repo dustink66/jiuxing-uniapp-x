@@ -7,27 +7,27 @@
 			<!-- 我的导师列表 -->
 			<view class="mb-4">
 				<view v-if="myMentors.length === 0" class="bg-surface-100 dark:!bg-surface-800 rounded-xl p-6 text-center">
-					<cl-icon name="user-line" :size="48" color="surface-400"></cl-icon>
-					<cl-text color="surface-400" :pt="{ className: 'mt-2' }">还没有绑定导师</cl-text>
-					<cl-text color="surface-400" :pt="{ className: '!text-sm mt-1' }">去导师列表选择一个导师吧</cl-text>
+					<cl-icon name="user-line" :size="48" color="surface-400" :pt="{ className: 'dark:!text-surface-400' }"></cl-icon>
+					<cl-text color="surface-400" :pt="{ className: 'mt-2 dark:!text-surface-400' }">还没有绑定导师</cl-text>
+					<cl-text color="surface-400" :pt="{ className: '!text-sm mt-1 dark:!text-surface-400' }">去导师列表选择一个导师吧</cl-text>
 				</view>
 				
 				<view v-else>
-					<view v-for="mentor in myMentors" :key="mentor.id" 
+					<view v-for="(mentor, index) in myMentors" :key="getMentorId(mentor, index)" 
 						class="bg-white dark:!bg-surface-800 rounded-xl p-4 mb-3" 
 						@tap="showMentorDetail(mentor)">
 						<view class="flex flex-row items-center">
-							<cl-avatar :src="mentor.mentor_avatar" :size="60" :pt="{ className: '!rounded-full' }"></cl-avatar>
+							<cl-avatar :src="getMentorAvatar(mentor)" :size="60" :pt="{ className: '!rounded-full' }"></cl-avatar>
 							<view class="ml-3 flex-1">
-								<cl-text :pt="{ className: '!text-lg font-bold' }">{{ mentor.name }}</cl-text>
-								<cl-text color="surface-400" :pt="{ className: '!text-sm mt-1' }">{{ mentor.level_name }}</cl-text>
+								<cl-text :pt="{ className: '!text-lg font-bold' }">{{ getMentorName(mentor) }}</cl-text>
+								<cl-text color="surface-400" :pt="{ className: '!text-sm mt-1' }">{{ getMentorLevelName(mentor) }}</cl-text>
 							</view>
 							<view class="flex flex-col items-end">
-								<cl-tag :type="getStatusType(mentor.status) as any" size="small">
-									{{ getStatusText(mentor.status) }}
+								<cl-tag :type="getStatusType(getMentorStatus(mentor)) as any" size="small">
+									{{ getStatusText(getMentorStatus(mentor)) }}
 								</cl-tag>
-								<cl-text color="surface-400" :pt="{ className: '!text-xs mt-1' }">
-									{{ formatDate(mentor.bind_time) }}
+								<cl-text color="surface-400" :pt="{ className: '!text-xs mt-1 dark:!text-surface-400' }">
+									{{ formatDate(getMentorBindTime(mentor)) }}
 								</cl-text>
 							</view>
 						</view>
@@ -55,24 +55,24 @@
 								<cl-text :pt="{ className: '!text-lg font-bold' }">{{ getSelectedMentorName() }}</cl-text>
 								<cl-text color="primary" :pt="{ className: '!text-sm ml-2' }">{{ getSelectedMentorLevelName() }}</cl-text>
 							</view>
-							<view class="flex flex-row items-center gap-3 flex-wrap">
-								<view v-if="getSelectedMentorGender() != null" class="flex flex-row items-center">
-									<cl-icon name="user-line" :size="20" color="surface-400"></cl-icon>
-									<cl-text color="surface-400" :pt="{ className: '!text-xs ml-1' }">
+							<view class="flex flex-row items-center flex-wrap">
+								<view v-if="getSelectedMentorGender() != null" class="flex flex-row items-center mr-3">
+									<cl-icon name="user-line" :size="24" color="surface-400" :pt="{ className: 'dark:!text-surface-400' }"></cl-icon>
+									<cl-text color="surface-400" :pt="{ className: '!text-xs ml-1 dark:!text-surface-400' }">
 										{{ getSelectedMentorGender() === 1 ? '男' : getSelectedMentorGender() === 2 ? '女' : '未知' }}
 									</cl-text>
 								</view>
-								<view v-if="getSelectedMentorAge() != null" class="flex flex-row items-center">
-									<cl-icon name="calendar-line" :size="20" color="surface-400"></cl-icon>
-									<cl-text color="surface-400" :pt="{ className: '!text-xs ml-1' }">{{ getSelectedMentorAge() }}岁</cl-text>
+								<view v-if="getSelectedMentorAge() != null" class="flex flex-row items-center mr-3">
+									<cl-icon name="calendar-line" :size="24" color="surface-400" :pt="{ className: 'dark:!text-surface-400' }"></cl-icon>
+									<cl-text color="surface-400" :pt="{ className: '!text-xs ml-1 dark:!text-surface-400' }">{{ getSelectedMentorAge() }}岁</cl-text>
 								</view>
-								<view v-if="getSelectedMentorCity() != ''" class="flex flex-row items-center">
-									<cl-icon name="map-pin-line" :size="20" color="surface-400"></cl-icon>
-									<cl-text color="surface-400" :pt="{ className: '!text-xs ml-1' }">{{ getSelectedMentorCity() }}</cl-text>
+								<view v-if="getSelectedMentorCity() != ''" class="flex flex-row items-center mr-3">
+									<cl-icon name="map-pin-line" :size="24" color="surface-400" :pt="{ className: 'dark:!text-surface-400' }"></cl-icon>
+									<cl-text color="surface-400" :pt="{ className: '!text-xs ml-1 dark:!text-surface-400' }">{{ getSelectedMentorCity() }}</cl-text>
 								</view>
 								<view v-if="getSelectedMentorWorkplace() != ''" class="flex flex-row items-center">
-									<cl-icon name="briefcase-line" :size="20" color="surface-400"></cl-icon>
-									<cl-text color="surface-400" :pt="{ className: '!text-xs ml-1' }">{{ getSelectedMentorWorkplace() }}</cl-text>
+									<cl-icon name="briefcase-line" :size="24" color="surface-400" :pt="{ className: 'dark:!text-surface-400' }"></cl-icon>
+									<cl-text color="surface-400" :pt="{ className: '!text-xs ml-1 dark:!text-surface-400' }">{{ getSelectedMentorWorkplace() }}</cl-text>
 								</view>
 							</view>
 						</view>
@@ -87,8 +87,8 @@
 							</cl-text>
 						</view>
 						<view class="flex flex-row items-center">
-							<cl-icon name="time-line" :size="24" :color="getStatusColor(getSelectedMentorStatus())"></cl-icon>
-							<cl-text :color="getStatusColor(getSelectedMentorStatus())" :pt="{ className: '!text-sm ml-1' }">
+							<cl-icon name="time-line" :size="24" :color="getStatusColor(getSelectedMentorStatus())" :pt="{ className: 'dark:!text-surface-400' }"></cl-icon>
+							<cl-text :color="getStatusColor(getSelectedMentorStatus())" :pt="{ className: '!text-sm ml-1 dark:!text-surface-400' }">
 								{{ getStatusText(getSelectedMentorStatus()) }}
 							</cl-text>
 						</view>
@@ -100,13 +100,13 @@
 					<cl-text :pt="{ className: '!text-base font-bold mb-3' }">时间信息</cl-text>
 					<view class="space-y-3">
 						<view class="flex flex-row items-center">
-							<cl-icon name="calendar-event-line" :size="20" color="surface-400"></cl-icon>
-							<cl-text color="surface-400" :pt="{ className: '!text-sm ml-2' }">绑定时间</cl-text>
+							<cl-icon name="calendar-event-line" :size="24" color="surface-400" :pt="{ className: 'dark:!text-surface-400' }"></cl-icon>
+							<cl-text color="surface-400" :pt="{ className: '!text-sm ml-2 dark:!text-surface-400' }">绑定时间</cl-text>
 							<cl-text :pt="{ className: '!text-sm ml-auto' }">{{ getSelectedMentorBindTime() != '' ? formatDate(getSelectedMentorBindTime()) : '' }}</cl-text>
 						</view>
 						<view v-if="getSelectedMentorGraduateTime() != ''" class="flex flex-row items-center">
-							<cl-icon name="graduation-cap-line" :size="20" color="surface-400"></cl-icon>
-							<cl-text color="surface-400" :pt="{ className: '!text-sm ml-2' }">毕业时间</cl-text>
+							<cl-icon name="calendar-event-line" :size="24" color="surface-400" :pt="{ className: 'dark:!text-surface-400' }"></cl-icon>
+							<cl-text color="surface-400" :pt="{ className: '!text-sm ml-2 dark:!text-surface-400' }">毕业时间</cl-text>
 							<cl-text :pt="{ className: '!text-sm ml-auto' }">{{ formatDate(getSelectedMentorGraduateTime()) }}</cl-text>
 						</view>
 					</view>
@@ -134,7 +134,7 @@
 </template>
 
 <script lang="ts" setup>
-import { router, useStore } from "@/cool";
+import { router, useStore, parse } from "@/cool";
 import { ref, onMounted, computed } from "vue";
 import { useUi } from "@/uni_modules/cool-ui";
 import { MentorService } from "@/cool/service/mentor";
@@ -144,13 +144,17 @@ const ui = useUi();
 const { user } = useStore();
 
 // 数据
-const myMentors = ref<MyMentorItem[]>([]);
+// 在 Android 平台上，数据实际是 UTSJSONObject[]，使用 any[] 类型避免类型转换错误
+const myMentors = ref<any[]>([]);
 const loading = ref(false);
 const showDetailModal = ref(false);
-const selectedMentor = ref<MyMentorItem | null>(null);
+const selectedMentor = ref<any | null>(null);
 
 // 使用 computed 避免 Smart cast 问题
-const selectedMentorValue = computed<MyMentorItem | null>(() => selectedMentor.value);
+const selectedMentorValue = computed(() => {
+	const value = selectedMentor.value;
+	return value != null ? value : ({} as any);
+});
 
 // 计算属性
 const isMentor = computed(() => user.info.value?.is_mentor === true);
@@ -160,7 +164,7 @@ function goBack() {
 	router.back();
 }
 
-function showMentorDetail(mentor: MyMentorItem) {
+function showMentorDetail(mentor: any) {
 	selectedMentor.value = mentor;
 	showDetailModal.value = true;
 }
@@ -231,7 +235,15 @@ async function loadData() {
 		// 加载我的导师列表
 		try {
 			const list = await MentorService.getMyMentors();
-			myMentors.value = Array.isArray(list) ? list : [];
+			// 在 Android 平台上，需要解析每个元素
+			if (Array.isArray(list)) {
+				myMentors.value = list.map((item: any) => {
+					const parsed = parse<MyMentorItem>(item);
+					return parsed != null ? parsed : item;
+				});
+			} else {
+				myMentors.value = [];
+			}
 		} catch (error) {
 			console.error('加载导师列表失败:', error);
 			myMentors.value = [];
@@ -247,70 +259,385 @@ async function loadData() {
 	}
 }
 
-// 辅助函数：安全获取导师属性
+// 辅助函数：安全获取导师属性（用于列表）
+function getMentorId(mentor: any, index: number): number {
+	// #ifdef APP-ANDROID
+	try {
+		const mentorObj = mentor as UTSJSONObject;
+		const id = mentorObj["id"] as number | null;
+		return id != null ? id : index;
+	} catch (e) {
+		const mentorInfo = mentor as MyMentorItem;
+		return mentorInfo?.id != null ? mentorInfo.id : index;
+	}
+	// #endif
+	
+	// #ifndef APP-ANDROID
+	const mentorInfo = mentor as MyMentorItem;
+	return mentorInfo?.id != null ? mentorInfo.id : index;
+	// #endif
+}
+
+function getMentorAvatar(mentor: any): string {
+	// #ifdef APP-ANDROID
+	try {
+		const mentorObj = mentor as UTSJSONObject;
+		const avatar = mentorObj["mentor_avatar"] as string | null;
+		return avatar != null ? avatar : "";
+	} catch (e) {
+		const mentorInfo = mentor as MyMentorItem;
+		return mentorInfo?.mentor_avatar ?? "";
+	}
+	// #endif
+	
+	// #ifndef APP-ANDROID
+	const mentorInfo = mentor as MyMentorItem;
+	return mentorInfo?.mentor_avatar ?? "";
+	// #endif
+}
+
+function getMentorName(mentor: any): string {
+	// #ifdef APP-ANDROID
+	try {
+		const mentorObj = mentor as UTSJSONObject;
+		const name = mentorObj["name"] as string | null;
+		return name != null ? name : "";
+	} catch (e) {
+		const mentorInfo = mentor as MyMentorItem;
+		return mentorInfo?.name ?? "";
+	}
+	// #endif
+	
+	// #ifndef APP-ANDROID
+	const mentorInfo = mentor as MyMentorItem;
+	return mentorInfo?.name ?? "";
+	// #endif
+}
+
+function getMentorLevelName(mentor: any): string {
+	// #ifdef APP-ANDROID
+	try {
+		const mentorObj = mentor as UTSJSONObject;
+		const levelName = mentorObj["level_name"] as string | null;
+		return levelName != null ? levelName : "";
+	} catch (e) {
+		const mentorInfo = mentor as MyMentorItem;
+		return mentorInfo?.level_name ?? "";
+	}
+	// #endif
+	
+	// #ifndef APP-ANDROID
+	const mentorInfo = mentor as MyMentorItem;
+	return mentorInfo?.level_name ?? "";
+	// #endif
+}
+
+function getMentorStatus(mentor: any): number {
+	// #ifdef APP-ANDROID
+	try {
+		const mentorObj = mentor as UTSJSONObject;
+		const status = mentorObj["status"] as number | null;
+		return status != null ? status : 0;
+	} catch (e) {
+		const mentorInfo = mentor as MyMentorItem;
+		return mentorInfo?.status ?? 0;
+	}
+	// #endif
+	
+	// #ifndef APP-ANDROID
+	const mentorInfo = mentor as MyMentorItem;
+	return mentorInfo?.status ?? 0;
+	// #endif
+}
+
+function getMentorBindTime(mentor: any): string {
+	// #ifdef APP-ANDROID
+	try {
+		const mentorObj = mentor as UTSJSONObject;
+		const bindTime = mentorObj["bind_time"] as string | null;
+		return bindTime != null ? bindTime : "";
+	} catch (e) {
+		const mentorInfo = mentor as MyMentorItem;
+		return mentorInfo?.bind_time ?? "";
+	}
+	// #endif
+	
+	// #ifndef APP-ANDROID
+	const mentorInfo = mentor as MyMentorItem;
+	return mentorInfo?.bind_time ?? "";
+	// #endif
+}
+
+// 辅助函数：安全获取导师属性（用于详情）
 function getSelectedMentorAvatar(): string {
 	const m = selectedMentorValue.value;
-	return m != null && m.mentor_avatar != null ? m.mentor_avatar : '';
+	if (m == null) return '';
+	
+	// #ifdef APP-ANDROID
+	try {
+		const mentorObj = m as UTSJSONObject;
+		const avatar = mentorObj["mentor_avatar"] as string | null;
+		return avatar != null ? avatar : '';
+	} catch (e) {
+		const mentorInfo = m as MyMentorItem;
+		return mentorInfo?.mentor_avatar != null ? mentorInfo.mentor_avatar : '';
+	}
+	// #endif
+	
+	// #ifndef APP-ANDROID
+	const mentorInfo = m as MyMentorItem;
+	return mentorInfo?.mentor_avatar != null ? mentorInfo.mentor_avatar : '';
+	// #endif
 }
 
 function getSelectedMentorName(): string {
 	const m = selectedMentorValue.value;
-	return m != null && m.name != null ? m.name : '';
+	if (m == null) return '';
+	
+	// #ifdef APP-ANDROID
+	try {
+		const mentorObj = m as UTSJSONObject;
+		const name = mentorObj["name"] as string | null;
+		return name != null ? name : '';
+	} catch (e) {
+		const mentorInfo = m as MyMentorItem;
+		return mentorInfo?.name != null ? mentorInfo.name : '';
+	}
+	// #endif
+	
+	// #ifndef APP-ANDROID
+	const mentorInfo = m as MyMentorItem;
+	return mentorInfo?.name != null ? mentorInfo.name : '';
+	// #endif
 }
 
 function getSelectedMentorLevelName(): string {
 	const m = selectedMentorValue.value;
-	return m != null && m.level_name != null ? m.level_name : '';
+	if (m == null) return '';
+	
+	// #ifdef APP-ANDROID
+	try {
+		const mentorObj = m as UTSJSONObject;
+		const levelName = mentorObj["level_name"] as string | null;
+		return levelName != null ? levelName : '';
+	} catch (e) {
+		const mentorInfo = m as MyMentorItem;
+		return mentorInfo?.level_name != null ? mentorInfo.level_name : '';
+	}
+	// #endif
+	
+	// #ifndef APP-ANDROID
+	const mentorInfo = m as MyMentorItem;
+	return mentorInfo?.level_name != null ? mentorInfo.level_name : '';
+	// #endif
 }
 
 function getSelectedMentorGender(): number | null {
 	const m = selectedMentorValue.value;
-	return m != null && m.gender != null ? m.gender : null;
+	if (m == null) return null;
+	
+	// #ifdef APP-ANDROID
+	try {
+		const mentorObj = m as UTSJSONObject;
+		return mentorObj["gender"] as number | null;
+	} catch (e) {
+		const mentorInfo = m as MyMentorItem;
+		return mentorInfo?.gender ?? null;
+	}
+	// #endif
+	
+	// #ifndef APP-ANDROID
+	const mentorInfo = m as MyMentorItem;
+	return mentorInfo?.gender ?? null;
+	// #endif
 }
 
 function getSelectedMentorAge(): number | null {
 	const m = selectedMentorValue.value;
-	return m != null && m.age != null ? m.age : null;
+	if (m == null) return null;
+	
+	// #ifdef APP-ANDROID
+	try {
+		const mentorObj = m as UTSJSONObject;
+		return mentorObj["age"] as number | null;
+	} catch (e) {
+		const mentorInfo = m as MyMentorItem;
+		return mentorInfo?.age ?? null;
+	}
+	// #endif
+	
+	// #ifndef APP-ANDROID
+	const mentorInfo = m as MyMentorItem;
+	return mentorInfo?.age ?? null;
+	// #endif
 }
 
 function getSelectedMentorCity(): string {
 	const m = selectedMentorValue.value;
-	return m != null && m.city != null ? m.city : '';
+	if (m == null) return '';
+	
+	// #ifdef APP-ANDROID
+	try {
+		const mentorObj = m as UTSJSONObject;
+		const city = mentorObj["city"] as string | null;
+		return city != null ? city : '';
+	} catch (e) {
+		const mentorInfo = m as MyMentorItem;
+		return mentorInfo?.city != null ? mentorInfo.city : '';
+	}
+	// #endif
+	
+	// #ifndef APP-ANDROID
+	const mentorInfo = m as MyMentorItem;
+	return mentorInfo?.city != null ? mentorInfo.city : '';
+	// #endif
 }
 
 function getSelectedMentorWorkplace(): string {
 	const m = selectedMentorValue.value;
-	return m != null && m.workplace != null ? m.workplace : '';
+	if (m == null) return '';
+	
+	// #ifdef APP-ANDROID
+	try {
+		const mentorObj = m as UTSJSONObject;
+		const workplace = mentorObj["workplace"] as string | null;
+		return workplace != null ? workplace : '';
+	} catch (e) {
+		const mentorInfo = m as MyMentorItem;
+		return mentorInfo?.workplace != null ? mentorInfo.workplace : '';
+	}
+	// #endif
+	
+	// #ifndef APP-ANDROID
+	const mentorInfo = m as MyMentorItem;
+	return mentorInfo?.workplace != null ? mentorInfo.workplace : '';
+	// #endif
 }
 
 function getSelectedMentorStudentRequiredIntegral(): number {
 	const m = selectedMentorValue.value;
-	return m != null && m.student_required_integral != null ? m.student_required_integral : 0;
+	if (m == null) return 0;
+	
+	// #ifdef APP-ANDROID
+	try {
+		const mentorObj = m as UTSJSONObject;
+		const integral = mentorObj["student_required_integral"] as number | null;
+		return integral != null ? integral : 0;
+	} catch (e) {
+		const mentorInfo = m as MyMentorItem;
+		return mentorInfo?.student_required_integral != null ? mentorInfo.student_required_integral : 0;
+	}
+	// #endif
+	
+	// #ifndef APP-ANDROID
+	const mentorInfo = m as MyMentorItem;
+	return mentorInfo?.student_required_integral != null ? mentorInfo.student_required_integral : 0;
+	// #endif
 }
 
 function getSelectedMentorStatus(): number {
 	const m = selectedMentorValue.value;
-	return m != null ? m.status : 0;
+	if (m == null) return 0;
+	
+	// #ifdef APP-ANDROID
+	try {
+		const mentorObj = m as UTSJSONObject;
+		const status = mentorObj["status"] as number | null;
+		return status != null ? status : 0;
+	} catch (e) {
+		const mentorInfo = m as MyMentorItem;
+		return mentorInfo?.status != null ? mentorInfo.status : 0;
+	}
+	// #endif
+	
+	// #ifndef APP-ANDROID
+	const mentorInfo = m as MyMentorItem;
+	return mentorInfo?.status != null ? mentorInfo.status : 0;
+	// #endif
 }
 
 function getSelectedMentorBindTime(): string {
 	const m = selectedMentorValue.value;
-	return m != null && m.bind_time != null ? m.bind_time : '';
+	if (m == null) return '';
+	
+	// #ifdef APP-ANDROID
+	try {
+		const mentorObj = m as UTSJSONObject;
+		const bindTime = mentorObj["bind_time"] as string | null;
+		return bindTime != null ? bindTime : '';
+	} catch (e) {
+		const mentorInfo = m as MyMentorItem;
+		return mentorInfo?.bind_time != null ? mentorInfo.bind_time : '';
+	}
+	// #endif
+	
+	// #ifndef APP-ANDROID
+	const mentorInfo = m as MyMentorItem;
+	return mentorInfo?.bind_time != null ? mentorInfo.bind_time : '';
+	// #endif
 }
 
 function getSelectedMentorGraduateTime(): string {
 	const m = selectedMentorValue.value;
-	return m != null && m.graduate_time != null ? m.graduate_time : '';
+	if (m == null) return '';
+	
+	// #ifdef APP-ANDROID
+	try {
+		const mentorObj = m as UTSJSONObject;
+		const graduateTime = mentorObj["graduate_time"] as string | null;
+		return graduateTime != null ? graduateTime : '';
+	} catch (e) {
+		const mentorInfo = m as MyMentorItem;
+		return mentorInfo?.graduate_time != null ? mentorInfo.graduate_time : '';
+	}
+	// #endif
+	
+	// #ifndef APP-ANDROID
+	const mentorInfo = m as MyMentorItem;
+	return mentorInfo?.graduate_time != null ? mentorInfo.graduate_time : '';
+	// #endif
 }
 
 function getSelectedMentorDescription(): string {
 	const m = selectedMentorValue.value;
-	return m != null && m.description != null && m.description != "" ? m.description : '';
+	if (m == null) return '';
+	
+	// #ifdef APP-ANDROID
+	try {
+		const mentorObj = m as UTSJSONObject;
+		const description = mentorObj["description"] as string | null;
+		return description != null && description != "" ? description : '';
+	} catch (e) {
+		const mentorInfo = m as MyMentorItem;
+		return mentorInfo?.description != null && mentorInfo.description != "" ? mentorInfo.description : '';
+	}
+	// #endif
+	
+	// #ifndef APP-ANDROID
+	const mentorInfo = m as MyMentorItem;
+	return mentorInfo?.description != null && mentorInfo.description != "" ? mentorInfo.description : '';
+	// #endif
 }
 
 function getSelectedMentorId(): number {
 	const m = selectedMentorValue.value;
-	return m != null && m.mentor_id != null ? m.mentor_id : 0;
+	if (m == null) return 0;
+	
+	// #ifdef APP-ANDROID
+	try {
+		const mentorObj = m as UTSJSONObject;
+		const mentorId = mentorObj["mentor_id"] as number | null;
+		return mentorId != null ? mentorId : 0;
+	} catch (e) {
+		const mentorInfo = m as MyMentorItem;
+		return mentorInfo?.mentor_id != null ? mentorInfo.mentor_id : 0;
+	}
+	// #endif
+	
+	// #ifndef APP-ANDROID
+	const mentorInfo = m as MyMentorItem;
+	return mentorInfo?.mentor_id != null ? mentorInfo.mentor_id : 0;
+	// #endif
 }
 
 function unbindMentor(mentorId: number) {

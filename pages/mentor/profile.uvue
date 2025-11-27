@@ -88,12 +88,12 @@
 </template>
 
 <script lang="ts" setup>
-import { router, isDark, parseClass } from "@/cool";
+import { router, isDark, parseClass, parse } from "@/cool";
 import { t } from "@/locale";
 import { ref, onMounted, computed, reactive } from "vue";
 import { useUi } from "@/uni_modules/cool-ui";
 import { MentorService } from "@/cool/service/mentor";
-import type { MentorProfileForm } from "@/types/habit";
+import type { MentorProfileForm, MentorInfo } from "@/types/habit";
 
 const ui = useUi();
 
@@ -116,16 +116,140 @@ const disabled = computed(() => {
 		   form.max_students > 100;
 });
 
+// 辅助函数：安全获取导师资料属性
+function getProfileDescription(profile: any): string {
+	// #ifdef APP-ANDROID
+	// 在 Android 平台上，profile 可能是 UTSJSONObject，使用索引访问
+	try {
+		const profileObj = profile as UTSJSONObject;
+		const description = profileObj["description"] as string | null;
+		return description != null && description != "" ? description : "";
+	} catch (e) {
+		// 如果转换失败，尝试使用 JSON 转换
+		try {
+			const profileStr = JSON.stringify(profile);
+			const profileParsed = JSON.parse(profileStr);
+			const profileObj2 = profileParsed as UTSJSONObject;
+			const description = profileObj2["description"] as string | null;
+			return description != null && description != "" ? description : "";
+		} catch (e2) {
+			// 如果还是失败，返回空字符串
+			return "";
+		}
+	}
+	// #endif
+	
+	// #ifndef APP-ANDROID
+	// 在其他平台上，也使用安全的方式访问，避免类型转换错误
+	try {
+		// 尝试直接访问属性
+		const profileAny = profile as any;
+		const description = profileAny["description"];
+		if (description != null && description != "" && description != undefined) {
+			return description as string;
+		}
+	} catch (e) {
+		// 如果失败，返回空字符串
+	}
+	return "";
+	// #endif
+}
+
+function getProfileStudentRequiredIntegral(profile: any): number {
+	// #ifdef APP-ANDROID
+	// 在 Android 平台上，profile 可能是 UTSJSONObject，使用索引访问
+	try {
+		const profileObj = profile as UTSJSONObject;
+		const integral = profileObj["student_required_integral"] as number | null;
+		return integral != null ? integral : 500;
+	} catch (e) {
+		// 如果转换失败，尝试使用 JSON 转换
+		try {
+			const profileStr = JSON.stringify(profile);
+			const profileParsed = JSON.parse(profileStr);
+			const profileObj2 = profileParsed as UTSJSONObject;
+			const integral = profileObj2["student_required_integral"] as number | null;
+			return integral != null ? integral : 500;
+		} catch (e2) {
+			// 如果还是失败，返回默认值
+			return 500;
+		}
+	}
+	// #endif
+	
+	// #ifndef APP-ANDROID
+	// 在其他平台上，也使用安全的方式访问，避免类型转换错误
+	try {
+		// 尝试直接访问属性
+		const profileAny = profile as any;
+		const integral = profileAny["student_required_integral"];
+		if (integral != null && integral != undefined) {
+			return integral as number;
+		}
+	} catch (e) {
+		// 如果失败，返回默认值
+	}
+	return 500;
+	// #endif
+}
+
+function getProfileMaxStudents(profile: any): number {
+	// #ifdef APP-ANDROID
+	// 在 Android 平台上，profile 可能是 UTSJSONObject，使用索引访问
+	try {
+		const profileObj = profile as UTSJSONObject;
+		const maxStudents = profileObj["max_students"] as number | null;
+		return maxStudents != null ? maxStudents : 10;
+	} catch (e) {
+		// 如果转换失败，尝试使用 JSON 转换
+		try {
+			const profileStr = JSON.stringify(profile);
+			const profileParsed = JSON.parse(profileStr);
+			const profileObj2 = profileParsed as UTSJSONObject;
+			const maxStudents = profileObj2["max_students"] as number | null;
+			return maxStudents != null ? maxStudents : 10;
+		} catch (e2) {
+			// 如果还是失败，返回默认值
+			return 10;
+		}
+	}
+	// #endif
+	
+	// #ifndef APP-ANDROID
+	// 在其他平台上，也使用安全的方式访问，避免类型转换错误
+	try {
+		// 尝试直接访问属性
+		const profileAny = profile as any;
+		const maxStudents = profileAny["max_students"];
+		if (maxStudents != null && maxStudents != undefined) {
+			return maxStudents as number;
+		}
+	} catch (e) {
+		// 如果失败，返回默认值
+	}
+	return 10;
+	// #endif
+}
+
 // 方法
 async function loadProfile() {
 	try {
 		loading.value = true;
-		const profile = await MentorService.getMentorProfile();
+		const profileData = await MentorService.getMentorProfile();
 		
-		// 填充表单数据
-		form.description = profile.description != null && profile.description != "" ? profile.description : "";
-		form.student_required_integral = profile.student_required_integral != null ? profile.student_required_integral : 500;
-		form.max_students = profile.max_students != null ? profile.max_students : 10;
+		// 在 Android 平台上，需要解析数据
+		const profile = parse<MentorInfo>(profileData);
+		if (profile == null) {
+			ui.showToast({
+				message: t("加载导师资料失败")
+			});
+			return;
+		}
+		
+		// 填充表单数据（使用辅助函数安全访问属性）
+		form.description = getProfileDescription(profile);
+		form.student_required_integral = getProfileStudentRequiredIntegral(profile);
+		form.max_students = getProfileMaxStudents(profile);
 	} catch (error) {
 		console.error('加载导师资料失败:', error);
 		ui.showToast({

@@ -403,6 +403,10 @@ function deleteTask(taskItem: any) {
 onMounted(() => {
   loadData();
 });
+
+onShow(() => {
+  loadData();
+});
 </script>
 
 <style lang="scss" scoped>

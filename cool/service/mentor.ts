@@ -100,9 +100,9 @@ export class MentorService {
 
 	/**
 	 * 获取导师个人资料
-	 * @returns Promise<MentorInfo>
+	 * @returns Promise<any> 返回 any 类型，调用方需要使用 parse<MentorInfo> 解析
 	 */
-	static async getMentorProfile(): Promise<MentorInfo> {
+	static async getMentorProfile(): Promise<any> {
 		return await request({
 			url: "/mentor/profile",
 			method: "GET"

@@ -86,6 +86,7 @@ import { ref, onMounted, computed } from "vue";
 import { useUi } from "@/uni_modules/cool-ui";
 import type { MentorInfo } from "@/types/habit";
 import type { UserInfo } from "@/types";
+import type { Response } from "@/cool/service";
 
 const ui = useUi();
 const { mentor: mentorStore, user: userStore } = useStore();
@@ -217,10 +218,48 @@ async function bindMentor() {
 		ui.showToast({
 			message: '申请成功，等待导师审核'
 		});
-		router.back();
+		setTimeout(() => {
+			router.to("/pages/mentor/my");
+		}, 1500);
 	} catch (error: any) {
-		const errorMsg = error != null && error.message != null && error.message != "" ? error.message : '申请失败';
-		const errorMessage: string = errorMsg != null ? errorMsg : '申请失败';
+		let errorMessage = '申请失败';
+		
+		if (error != null) {
+			// 在 Android 平台上，错误对象可能是 HolderUTSError，需要特殊处理
+			// #ifdef APP-ANDROID
+			// 尝试使用 JSON 转换来访问属性
+			try {
+				// 使用 JSON 转换来避免类型转换问题
+				const errorStr = JSON.stringify(error);
+				const errorParsed = JSON.parse(errorStr);
+				// 将解析后的对象转换为 UTSJSONObject 以使用索引访问
+				const errorObj = errorParsed as UTSJSONObject;
+				const msg = errorObj["message"] as string | null;
+				if (msg != null && msg != "") {
+					errorMessage = msg;
+				}
+			} catch (e) {
+				// 如果 JSON 转换失败，尝试直接转换为 Response 类型
+				try {
+					const errorResponse = error as Response;
+					if (errorResponse.message != null && errorResponse.message != "") {
+						errorMessage = errorResponse.message;
+					}
+				} catch (e2) {
+					// 如果还是失败，使用默认错误信息
+					console.error("无法解析错误信息:", e2);
+				}
+			}
+			// #endif
+			
+			// #ifndef APP-ANDROID
+			// 在其他平台上，直接访问 message 属性
+			if (error.message != null && error.message != "") {
+				errorMessage = error.message;
+			}
+			// #endif
+		}
+		
 		ui.showToast({
 			message: errorMessage
 		});

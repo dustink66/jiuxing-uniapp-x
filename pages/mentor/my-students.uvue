@@ -4,21 +4,30 @@
 		<scroll-view class="container" style="flex: 1">
 		<!-- #endif -->
 		<view class="p-3">
-			<!-- 导师资料管理 -->
-			<view class="mb-4">
-				<view class="bg-white dark:!bg-surface-800 rounded-xl p-4 mb-3" @tap="toMentorProfile">
-					<view class="flex flex-row items-center">
-						<cl-icon name="user-settings-line" :size="50" color="primary"></cl-icon>
-						<view class="ml-3 flex-1">
-							<cl-text :pt="{ className: '!text-base font-bold' }">导师资料管理</cl-text>
-							<cl-text color="surface-400" :pt="{ className: '!text-sm mt-1' }">编辑导师简介、积分要求和招收数量</cl-text>
+			<!-- 导师权限审核中提示 -->
+			<view v-if="pendingApproval" class="bg-surface-100 dark:!bg-surface-800 rounded-xl p-6 text-center">
+				<cl-icon name="time-line" :size="48" color="surface-400" :pt="{ className: 'dark:!text-surface-400' }"></cl-icon>
+				<cl-text color="surface-400" :pt="{ className: 'mt-2 dark:!text-surface-400' }">导师权限审核中</cl-text>
+				<cl-text color="surface-400" :pt="{ className: '!text-sm mt-1 dark:!text-surface-400' }">请等待管理员审核您的导师申请</cl-text>
+			</view>
+
+			<!-- 正常内容 -->
+			<view v-else>
+				<!-- 导师资料管理 -->
+				<view class="mb-4">
+					<view class="bg-white dark:!bg-surface-800 rounded-xl p-4 mb-3" @tap="toMentorProfile">
+						<view class="flex flex-row items-center">
+							<cl-icon name="user-settings-line" :size="50" color="primary"></cl-icon>
+							<view class="ml-3 flex-1">
+								<cl-text :pt="{ className: '!text-base font-bold' }">导师资料管理</cl-text>
+								<cl-text color="surface-400" :pt="{ className: '!text-sm mt-1 dark:!text-surface-400' }">编辑导师简介、积分要求和招收数量</cl-text>
+							</view>
 						</view>
 					</view>
 				</view>
-			</view>
 
-			<!-- 我的学员列表 -->
-			<view class="mb-4">
+				<!-- 我的学员列表 -->
+				<view class="mb-4">
 				<view class="mb-3">
 					<cl-input
 						v-model="searchKeyword"
@@ -36,36 +45,37 @@
 				</view>
 				
 				<view v-if="filteredStudents.length === 0" class="bg-surface-100 dark:!bg-surface-800 rounded-xl p-6 text-center">
-					<cl-icon name="user-line" :size="48" color="surface-400"></cl-icon>
-					<cl-text color="surface-400" :pt="{ className: 'mt-2' }">
+					<cl-icon name="user-line" :size="48" color="surface-400" :pt="{ className: 'dark:!text-surface-400' }"></cl-icon>
+					<cl-text color="surface-400" :pt="{ className: 'mt-2 dark:!text-surface-400' }">
 						{{ searchKeyword.trim() != "" ? '未找到匹配的学员' : '暂无学员' }}
 					</cl-text>
-					<cl-text color="surface-400" :pt="{ className: '!text-sm mt-1' }">
+					<cl-text color="surface-400" :pt="{ className: '!text-sm mt-1 dark:!text-surface-400' }">
 						{{ searchKeyword.trim() != "" ? '请尝试其他关键词' : '等待学员申请绑定' }}
 					</cl-text>
 				</view>
 				
 				<view v-else>
-					<view v-for="student in filteredStudents" :key="student.id" 
+					<view v-for="(student, index) in filteredStudents" :key="getStudentId(student, index)" 
 						class="bg-white dark:!bg-surface-800 rounded-xl p-4 mb-3" 
 						@tap="showStudentDetail(student)">
 						<view class="flex flex-row items-center">
-							<cl-avatar :src="student.avatar" :size="60" :pt="{ className: '!rounded-full' }"></cl-avatar>
+							<cl-avatar :src="getStudentAvatar(student)" :size="60" :pt="{ className: '!rounded-full' }"></cl-avatar>
 							<view class="ml-3 flex-1">
-								<cl-text :pt="{ className: '!text-lg font-bold' }">{{ student.nickname }}</cl-text>
-								<cl-text color="surface-400" :pt="{ className: '!text-sm mt-1' }">{{ student.level_name }}</cl-text>
+								<cl-text :pt="{ className: '!text-lg font-bold' }">{{ getStudentNickname(student) }}</cl-text>
+								<cl-text color="surface-400" :pt="{ className: '!text-sm mt-1 dark:!text-surface-400' }">{{ getStudentLevelName(student) }}</cl-text>
 							</view>
 							<view class="flex flex-col items-end">
-								<cl-tag :type="getStatusType(student.status) as any" size="small">
-									{{ getStatusText(student.status) }}
+								<cl-tag :type="getStatusType(getStudentStatus(student)) as any" size="small">
+									{{ getStatusText(getStudentStatus(student)) }}
 								</cl-tag>
-								<cl-text color="surface-400" :pt="{ className: '!text-xs mt-1' }">
-									{{ formatDate(student.bind_time) }}
+								<cl-text color="surface-400" :pt="{ className: '!text-xs mt-1 dark:!text-surface-400' }">
+									{{ formatDate(getStudentBindTime(student)) }}
 								</cl-text>
 							</view>
 						</view>
 					</view>
 				</view>
+			</view>
 			</view>
 		</view>
 		<!-- #ifdef APP -->
@@ -88,28 +98,28 @@
 								<cl-text :pt="{ className: '!text-lg font-bold' }">{{ getSelectedStudentNickname() }}</cl-text>
 								<cl-text color="primary" :pt="{ className: '!text-sm ml-2' }">{{ getSelectedStudentLevelName() }}</cl-text>
 							</view>
-							<view class="flex flex-row items-center gap-3 flex-wrap">
-								<view v-if="getSelectedStudentPhone() != ''" class="flex flex-row items-center">
-									<cl-icon name="phone-line" :size="20" color="surface-400"></cl-icon>
-									<cl-text color="surface-400" :pt="{ className: '!text-xs ml-1' }">{{ getSelectedStudentPhone() }}</cl-text>
+							<view class="flex flex-row items-center flex-wrap">
+								<view v-if="getSelectedStudentPhone() != ''" class="flex flex-row items-center mr-3">
+									<cl-icon name="phone-line" :size="24" color="surface-400" :pt="{ className: 'dark:!text-surface-400' }"></cl-icon>
+									<cl-text color="surface-400" :pt="{ className: '!text-xs ml-1 dark:!text-surface-400' }">{{ getSelectedStudentPhone() }}</cl-text>
 								</view>
-								<view v-if="getSelectedStudentGender() != null" class="flex flex-row items-center">
-									<cl-icon name="user-line" :size="20" color="surface-400"></cl-icon>
-									<cl-text color="surface-400" :pt="{ className: '!text-xs ml-1' }">
+								<view v-if="getSelectedStudentGender() != null" class="flex flex-row items-center mr-3">
+									<cl-icon name="user-line" :size="24" color="surface-400" :pt="{ className: 'dark:!text-surface-400' }"></cl-icon>
+									<cl-text color="surface-400" :pt="{ className: '!text-xs ml-1 dark:!text-surface-400' }">
 										{{ getSelectedStudentGender() === 1 ? '男' : getSelectedStudentGender() === 2 ? '女' : '未知' }}
 									</cl-text>
 								</view>
-								<view v-if="getSelectedStudentAge() != null" class="flex flex-row items-center">
-									<cl-icon name="calendar-line" :size="20" color="surface-400"></cl-icon>
-									<cl-text color="surface-400" :pt="{ className: '!text-xs ml-1' }">{{ getSelectedStudentAge() }}岁</cl-text>
+								<view v-if="getSelectedStudentAge() != null" class="flex flex-row items-center mr-3">
+									<cl-icon name="calendar-line" :size="24" color="surface-400" :pt="{ className: 'dark:!text-surface-400' }"></cl-icon>
+									<cl-text color="surface-400" :pt="{ className: '!text-xs ml-1 dark:!text-surface-400' }">{{ getSelectedStudentAge() }}岁</cl-text>
 								</view>
-								<view v-if="getSelectedStudentCity() != ''" class="flex flex-row items-center">
-									<cl-icon name="map-pin-line" :size="20" color="surface-400"></cl-icon>
-									<cl-text color="surface-400" :pt="{ className: '!text-xs ml-1' }">{{ getSelectedStudentCity() }}</cl-text>
+								<view v-if="getSelectedStudentCity() != ''" class="flex flex-row items-center mr-3">
+									<cl-icon name="map-pin-line" :size="24" color="surface-400" :pt="{ className: 'dark:!text-surface-400' }"></cl-icon>
+									<cl-text color="surface-400" :pt="{ className: '!text-xs ml-1 dark:!text-surface-400' }">{{ getSelectedStudentCity() }}</cl-text>
 								</view>
 								<view v-if="getSelectedStudentWorkplace() != ''" class="flex flex-row items-center">
-									<cl-icon name="briefcase-line" :size="20" color="surface-400"></cl-icon>
-									<cl-text color="surface-400" :pt="{ className: '!text-xs ml-1' }">{{ getSelectedStudentWorkplace() }}</cl-text>
+									<cl-icon name="briefcase-line" :size="24" color="surface-400" :pt="{ className: 'dark:!text-surface-400' }"></cl-icon>
+									<cl-text color="surface-400" :pt="{ className: '!text-xs ml-1 dark:!text-surface-400' }">{{ getSelectedStudentWorkplace() }}</cl-text>
 								</view>
 							</view>
 						</view>
@@ -124,8 +134,8 @@
 							</cl-text>
 						</view>
 						<view class="flex flex-row items-center">
-							<cl-icon name="time-line" :size="24" :color="getStatusColor(getSelectedStudentStatus())"></cl-icon>
-							<cl-text :color="getStatusColor(getSelectedStudentStatus())" :pt="{ className: '!text-sm ml-1' }">
+							<cl-icon name="time-line" :size="24" :color="getStatusColor(getSelectedStudentStatus())" :pt="{ className: 'dark:!text-surface-400' }"></cl-icon>
+							<cl-text :color="getStatusColor(getSelectedStudentStatus())" :pt="{ className: '!text-sm ml-1 dark:!text-surface-400' }">
 								{{ getStatusText(getSelectedStudentStatus()) }}
 							</cl-text>
 						</view>
@@ -137,13 +147,13 @@
 					<cl-text :pt="{ className: '!text-base font-bold mb-3' }">时间信息</cl-text>
 					<view class="space-y-3">
 						<view class="flex flex-row items-center">
-							<cl-icon name="calendar-event-line" :size="20" color="surface-400"></cl-icon>
-							<cl-text color="surface-400" :pt="{ className: '!text-sm ml-2' }">绑定时间</cl-text>
+							<cl-icon name="calendar-event-line" :size="24" color="surface-400" :pt="{ className: 'dark:!text-surface-400' }"></cl-icon>
+							<cl-text color="surface-400" :pt="{ className: '!text-sm ml-2 dark:!text-surface-400' }">绑定时间</cl-text>
 							<cl-text :pt="{ className: '!text-sm ml-auto' }">{{ getSelectedStudentBindTime() != '' ? formatDate(getSelectedStudentBindTime()) : '' }}</cl-text>
 						</view>
 						<view v-if="getSelectedStudentGraduateTime() != ''" class="flex flex-row items-center">
-							<cl-icon name="graduation-cap-line" :size="20" color="surface-400"></cl-icon>
-							<cl-text color="surface-400" :pt="{ className: '!text-sm ml-2' }">毕业时间</cl-text>
+							<cl-icon name="calendar-event-line" :size="24" color="surface-400" :pt="{ className: 'dark:!text-surface-400' }"></cl-icon>
+							<cl-text color="surface-400" :pt="{ className: '!text-sm ml-2 dark:!text-surface-400' }">毕业时间</cl-text>
 							<cl-text :pt="{ className: '!text-sm ml-auto' }">{{ formatDate(getSelectedStudentGraduateTime()) }}</cl-text>
 						</view>
 					</view>
@@ -164,7 +174,7 @@
 						解绑
 					</cl-button>
 					<cl-button
-						v-if="selectedStudent != null && selectedStudent.status === 0"
+						v-if="getSelectedStudentStatus() === 0"
 						type="primary"
 						size="large"
 						:pt="{ className: 'flex-1' }"
@@ -173,7 +183,7 @@
 						通过
 					</cl-button>
 					<cl-button
-						v-if="selectedStudent != null && selectedStudent.status === 1"
+						v-if="getSelectedStudentStatus() === 1"
 						type="success"
 						size="large"
 						:pt="{ className: 'flex-1' }"
@@ -182,7 +192,7 @@
 						认可
 					</cl-button>
 					<cl-button
-						v-if="selectedStudent != null && selectedStudent.status === 2"
+						v-if="getSelectedStudentStatus() === 2"
 						type="success"
 						size="large"
 						:pt="{ className: 'flex-1' }"
@@ -197,45 +207,40 @@
 </template>
 
 <script lang="ts" setup>
-import { router, useStore, isDark, parseClass } from "@/cool";
+import { router, useStore, isDark, parseClass, parse } from "@/cool";
 import { ref, onMounted, computed } from "vue";
 import { useUi } from "@/uni_modules/cool-ui";
 import { MentorService } from "@/cool/service/mentor";
 import type { StudentInfo } from "@/types/habit";
+import type { Response } from "@/cool/service";
 
 const ui = useUi();
 const { user } = useStore();
 
 // 数据
-const students = ref<StudentInfo[]>([]);
+// 在 Android 平台上，数据实际是 UTSJSONObject[]，使用 any[] 类型避免类型转换错误
+const students = ref<any[]>([]);
 const loading = ref(false);
 const searchKeyword = ref('');
 const showDetailModal = ref(false);
-const selectedStudent = ref<StudentInfo | null>(null);
+const selectedStudent = ref<any | null>(null);
+const pendingApproval = ref(false); // 导师权限审核中
 
 // 使用 computed 避免 Smart cast 问题
-const selectedStudentValue = computed<StudentInfo | null>(() => selectedStudent.value);
+const selectedStudentValue = computed(() => {
+	const value = selectedStudent.value;
+	return value != null ? value : ({} as any);
+});
 
 // 计算属性
 const isMentor = computed(() => user.info.value?.is_mentor === true);
-
-// 过滤后的学员列表
-const filteredStudents = computed<StudentInfo[]>(() => {
-	if (searchKeyword.value == null || searchKeyword.value.trim() == "") {
-		return students.value;
-	}
-	const keyword = searchKeyword.value.toLowerCase();
-	return students.value.filter(student => 
-		student.nickname != null && student.nickname.toLowerCase().includes(keyword)
-	);
-});
 
 // 方法
 function onSearch() {
 	// 搜索逻辑已在computed中处理
 }
 
-function showStudentDetail(student: StudentInfo) {
+function showStudentDetail(student: any) {
 	selectedStudent.value = student;
 	showDetailModal.value = true;
 }
@@ -255,70 +260,427 @@ function toMentorProfile() {
 	});
 }
 
-// 辅助函数：安全获取学员属性
+// 辅助函数：安全获取学员属性（用于列表）
+function getStudentId(student: any, index: number): number {
+	// #ifdef APP-ANDROID
+	try {
+		const studentObj = student as UTSJSONObject;
+		const id = studentObj["id"] as number | null;
+		return id != null ? id : index;
+	} catch (e) {
+		const studentInfo = student as StudentInfo;
+		return studentInfo?.id != null ? studentInfo.id : index;
+	}
+	// #endif
+	
+	// #ifndef APP-ANDROID
+	const studentInfo = student as StudentInfo;
+	return studentInfo?.id != null ? studentInfo.id : index;
+	// #endif
+}
+
+function getStudentAvatar(student: any): string {
+	// #ifdef APP-ANDROID
+	try {
+		const studentObj = student as UTSJSONObject;
+		const avatar = studentObj["avatar"] as string | null;
+		return avatar != null ? avatar : "";
+	} catch (e) {
+		const studentInfo = student as StudentInfo;
+		return studentInfo?.avatar ?? "";
+	}
+	// #endif
+	
+	// #ifndef APP-ANDROID
+	const studentInfo = student as StudentInfo;
+	return studentInfo?.avatar ?? "";
+	// #endif
+}
+
+function getStudentNickname(student: any): string {
+	// #ifdef APP-ANDROID
+	try {
+		const studentObj = student as UTSJSONObject;
+		const nickname = studentObj["nickname"] as string | null;
+		return nickname != null ? nickname : "";
+	} catch (e) {
+		const studentInfo = student as StudentInfo;
+		return studentInfo?.nickname ?? "";
+	}
+	// #endif
+	
+	// #ifndef APP-ANDROID
+	const studentInfo = student as StudentInfo;
+	return studentInfo?.nickname ?? "";
+	// #endif
+}
+
+function getStudentLevelName(student: any): string {
+	// #ifdef APP-ANDROID
+	try {
+		const studentObj = student as UTSJSONObject;
+		const levelName = studentObj["level_name"] as string | null;
+		return levelName != null ? levelName : "";
+	} catch (e) {
+		const studentInfo = student as StudentInfo;
+		return studentInfo?.level_name ?? "";
+	}
+	// #endif
+	
+	// #ifndef APP-ANDROID
+	const studentInfo = student as StudentInfo;
+	return studentInfo?.level_name ?? "";
+	// #endif
+}
+
+function getStudentStatus(student: any): number {
+	// #ifdef APP-ANDROID
+	try {
+		const studentObj = student as UTSJSONObject;
+		const status = studentObj["status"] as number | null;
+		return status != null ? status : 0;
+	} catch (e) {
+		const studentInfo = student as StudentInfo;
+		return studentInfo?.status ?? 0;
+	}
+	// #endif
+	
+	// #ifndef APP-ANDROID
+	const studentInfo = student as StudentInfo;
+	return studentInfo?.status ?? 0;
+	// #endif
+}
+
+function getStudentBindTime(student: any): string {
+	// #ifdef APP-ANDROID
+	try {
+		const studentObj = student as UTSJSONObject;
+		const bindTime = studentObj["bind_time"] as string | null;
+		return bindTime != null ? bindTime : "";
+	} catch (e) {
+		const studentInfo = student as StudentInfo;
+		return studentInfo?.bind_time ?? "";
+	}
+	// #endif
+	
+	// #ifndef APP-ANDROID
+	const studentInfo = student as StudentInfo;
+	return studentInfo?.bind_time ?? "";
+	// #endif
+}
+
+// 过滤后的学员列表（需要在辅助函数定义之后）
+const filteredStudents = computed<any[]>(() => {
+	if (searchKeyword.value == null || searchKeyword.value.trim() == "") {
+		return students.value;
+	}
+	const keyword = searchKeyword.value.toLowerCase();
+	return students.value.filter((student: any) => {
+		const nickname = getStudentNickname(student);
+		return nickname != "" && nickname.toLowerCase().includes(keyword);
+	});
+});
+
+// 辅助函数：安全获取学员属性（用于详情）
 function getSelectedStudentAvatar(): string {
 	const s = selectedStudentValue.value;
-	return s != null && s.avatar != null ? s.avatar : '';
+	if (s == null) return '';
+	
+	// #ifdef APP-ANDROID
+	try {
+		const studentObj = s as UTSJSONObject;
+		const avatar = studentObj["avatar"] as string | null;
+		return avatar != null ? avatar : '';
+	} catch (e) {
+		const studentInfo = s as StudentInfo;
+		return studentInfo?.avatar != null ? studentInfo.avatar : '';
+	}
+	// #endif
+	
+	// #ifndef APP-ANDROID
+	const studentInfo = s as StudentInfo;
+	return studentInfo?.avatar != null ? studentInfo.avatar : '';
+	// #endif
 }
 
 function getSelectedStudentNickname(): string {
 	const s = selectedStudentValue.value;
-	return s != null && s.nickname != null ? s.nickname : '';
+	if (s == null) return '';
+	
+	// #ifdef APP-ANDROID
+	try {
+		const studentObj = s as UTSJSONObject;
+		const nickname = studentObj["nickname"] as string | null;
+		return nickname != null ? nickname : '';
+	} catch (e) {
+		const studentInfo = s as StudentInfo;
+		return studentInfo?.nickname != null ? studentInfo.nickname : '';
+	}
+	// #endif
+	
+	// #ifndef APP-ANDROID
+	const studentInfo = s as StudentInfo;
+	return studentInfo?.nickname != null ? studentInfo.nickname : '';
+	// #endif
 }
 
 function getSelectedStudentLevelName(): string {
 	const s = selectedStudentValue.value;
-	return s != null && s.level_name != null ? s.level_name : '';
+	if (s == null) return '';
+	
+	// #ifdef APP-ANDROID
+	try {
+		const studentObj = s as UTSJSONObject;
+		const levelName = studentObj["level_name"] as string | null;
+		return levelName != null ? levelName : '';
+	} catch (e) {
+		const studentInfo = s as StudentInfo;
+		return studentInfo?.level_name != null ? studentInfo.level_name : '';
+	}
+	// #endif
+	
+	// #ifndef APP-ANDROID
+	const studentInfo = s as StudentInfo;
+	return studentInfo?.level_name != null ? studentInfo.level_name : '';
+	// #endif
 }
 
 function getSelectedStudentPhone(): string {
 	const s = selectedStudentValue.value;
-	return s != null && s.phone != null ? s.phone : '';
+	if (s == null) return '';
+	
+	// #ifdef APP-ANDROID
+	try {
+		const studentObj = s as UTSJSONObject;
+		const phone = studentObj["phone"] as string | null;
+		return phone != null ? phone : '';
+	} catch (e) {
+		const studentInfo = s as StudentInfo;
+		return studentInfo?.phone != null ? studentInfo.phone : '';
+	}
+	// #endif
+	
+	// #ifndef APP-ANDROID
+	const studentInfo = s as StudentInfo;
+	return studentInfo?.phone != null ? studentInfo.phone : '';
+	// #endif
 }
 
 function getSelectedStudentGender(): number | null {
 	const s = selectedStudentValue.value;
-	return s != null ? s.gender : null;
+	if (s == null) return null;
+	
+	// #ifdef APP-ANDROID
+	try {
+		const studentObj = s as UTSJSONObject;
+		return studentObj["gender"] as number | null;
+	} catch (e) {
+		const studentInfo = s as StudentInfo;
+		return studentInfo?.gender ?? null;
+	}
+	// #endif
+	
+	// #ifndef APP-ANDROID
+	const studentInfo = s as StudentInfo;
+	return studentInfo?.gender ?? null;
+	// #endif
 }
 
 function getSelectedStudentAge(): number | null {
 	const s = selectedStudentValue.value;
-	return s != null ? s.age : null;
+	if (s == null) return null;
+	
+	// #ifdef APP-ANDROID
+	try {
+		const studentObj = s as UTSJSONObject;
+		return studentObj["age"] as number | null;
+	} catch (e) {
+		const studentInfo = s as StudentInfo;
+		return studentInfo?.age ?? null;
+	}
+	// #endif
+	
+	// #ifndef APP-ANDROID
+	const studentInfo = s as StudentInfo;
+	return studentInfo?.age ?? null;
+	// #endif
 }
 
 function getSelectedStudentCity(): string {
 	const s = selectedStudentValue.value;
-	return s != null && s.city != null ? s.city : '';
+	if (s == null) return '';
+	
+	// #ifdef APP-ANDROID
+	try {
+		const studentObj = s as UTSJSONObject;
+		const city = studentObj["city"] as string | null;
+		return city != null ? city : '';
+	} catch (e) {
+		const studentInfo = s as StudentInfo;
+		return studentInfo?.city != null ? studentInfo.city : '';
+	}
+	// #endif
+	
+	// #ifndef APP-ANDROID
+	const studentInfo = s as StudentInfo;
+	return studentInfo?.city != null ? studentInfo.city : '';
+	// #endif
 }
 
 function getSelectedStudentWorkplace(): string {
 	const s = selectedStudentValue.value;
-	return s != null && s.workplace != null ? s.workplace : '';
+	if (s == null) return '';
+	
+	// #ifdef APP-ANDROID
+	try {
+		const studentObj = s as UTSJSONObject;
+		const workplace = studentObj["workplace"] as string | null;
+		return workplace != null ? workplace : '';
+	} catch (e) {
+		const studentInfo = s as StudentInfo;
+		return studentInfo?.workplace != null ? studentInfo.workplace : '';
+	}
+	// #endif
+	
+	// #ifndef APP-ANDROID
+	const studentInfo = s as StudentInfo;
+	if (studentInfo != null && studentInfo.workplace != null && studentInfo.workplace != undefined) {
+		return studentInfo.workplace as string;
+	}
+	return '';
+	// #endif
 }
 
 function getSelectedStudentIntegral(): number {
 	const s = selectedStudentValue.value;
-	return s != null && s.integral != null ? s.integral : 0;
+	if (s == null) return 0;
+	
+	// #ifdef APP-ANDROID
+	try {
+		const studentObj = s as UTSJSONObject;
+		const integral = studentObj["integral"] as number | null;
+		return integral != null ? integral : 0;
+	} catch (e) {
+		const studentInfo = s as StudentInfo;
+		return studentInfo?.integral != null ? studentInfo.integral : 0;
+	}
+	// #endif
+	
+	// #ifndef APP-ANDROID
+	const studentInfo = s as StudentInfo;
+	return studentInfo?.integral != null ? studentInfo.integral : 0;
+	// #endif
 }
 
 function getSelectedStudentStatus(): number {
 	const s = selectedStudentValue.value;
-	return s != null ? s.status : 0;
+	if (s == null) return 0;
+	
+	// #ifdef APP-ANDROID
+	try {
+		const studentObj = s as UTSJSONObject;
+		const status = studentObj["status"] as number | null;
+		return status != null ? status : 0;
+	} catch (e) {
+		const studentInfo = s as StudentInfo;
+		return studentInfo?.status != null ? studentInfo.status : 0;
+	}
+	// #endif
+	
+	// #ifndef APP-ANDROID
+	const studentInfo = s as StudentInfo;
+	return studentInfo?.status != null ? studentInfo.status : 0;
+	// #endif
 }
 
 function getSelectedStudentBindTime(): string {
 	const s = selectedStudentValue.value;
-	return s != null && s.bind_time != null ? s.bind_time : '';
+	if (s == null) return '';
+	
+	// #ifdef APP-ANDROID
+	try {
+		const studentObj = s as UTSJSONObject;
+		const bindTime = studentObj["bind_time"] as string | null;
+		return bindTime != null ? bindTime : '';
+	} catch (e) {
+		const studentInfo = s as StudentInfo;
+		return studentInfo?.bind_time != null ? studentInfo.bind_time : '';
+	}
+	// #endif
+	
+	// #ifndef APP-ANDROID
+	const studentInfo = s as StudentInfo;
+	return studentInfo?.bind_time != null ? studentInfo.bind_time : '';
+	// #endif
 }
 
 function getSelectedStudentGraduateTime(): string {
 	const s = selectedStudentValue.value;
-	return s != null && s.graduate_time != null ? s.graduate_time : '';
+	if (s == null) return '';
+	
+	// #ifdef APP-ANDROID
+	try {
+		const studentObj = s as UTSJSONObject;
+		const graduateTime = studentObj["graduate_time"] as string | null;
+		return graduateTime != null ? graduateTime : '';
+	} catch (e) {
+		const studentInfo = s as StudentInfo;
+		return studentInfo?.graduate_time != null ? studentInfo.graduate_time : '';
+	}
+	// #endif
+	
+	// #ifndef APP-ANDROID
+	const studentInfo = s as StudentInfo;
+	if (studentInfo != null && studentInfo.graduate_time != null && studentInfo.graduate_time != undefined) {
+		return studentInfo.graduate_time as string;
+	}
+	return '';
+	// #endif
 }
 
 function getSelectedStudentDescription(): string {
 	const s = selectedStudentValue.value;
-	return s != null && s.description != null && s.description != "" ? s.description : '';
+	if (s == null) return '';
+	
+	// #ifdef APP-ANDROID
+	try {
+		const studentObj = s as UTSJSONObject;
+		const description = studentObj["description"] as string | null;
+		return description != null && description != "" ? description : '';
+	} catch (e) {
+		const studentInfo = s as StudentInfo;
+		return studentInfo?.description != null && studentInfo.description != "" ? studentInfo.description : '';
+	}
+	// #endif
+	
+	// #ifndef APP-ANDROID
+	const studentInfo = s as StudentInfo;
+	if (studentInfo != null && studentInfo.description != null && studentInfo.description != undefined && studentInfo.description != "") {
+		return studentInfo.description as string;
+	}
+	return '';
+	// #endif
+}
+
+function getSelectedStudentId(): number {
+	const s = selectedStudentValue.value;
+	if (s == null) return 0;
+	
+	// #ifdef APP-ANDROID
+	try {
+		const studentObj = s as UTSJSONObject;
+		const id = studentObj["id"] as number | null;
+		return id != null ? id : 0;
+	} catch (e) {
+		const studentInfo = s as StudentInfo;
+		return studentInfo?.id != null ? studentInfo.id : 0;
+	}
+	// #endif
+	
+	// #ifndef APP-ANDROID
+	const studentInfo = s as StudentInfo;
+	return studentInfo?.id != null ? studentInfo.id : 0;
+	// #endif
 }
 
 function formatDate(dateStr: string): string {
@@ -382,10 +744,66 @@ async function loadData() {
 		// 加载学员列表
 		try {
 			const list = await MentorService.getMyStudents();
-			students.value = Array.isArray(list) ? list : [];
-		} catch (error) {
+			// 在 Android 平台上，需要解析每个元素
+			if (Array.isArray(list)) {
+				students.value = list.map((item: any) => {
+					const parsed = parse<StudentInfo>(item);
+					return parsed != null ? parsed : item;
+				});
+			} else {
+				students.value = [];
+			}
+			// 成功加载，重置权限审核状态
+			pendingApproval.value = false;
+		} catch (error: any) {
 			console.error('加载学员列表失败:', error);
-			students.value = [];
+			
+			// 检查是否是权限错误（403）
+			let isPermissionError = false;
+			
+			// 在 Android 平台上，错误对象可能是 HolderUTSError，需要特殊处理
+			// #ifdef APP-ANDROID
+			try {
+				// 尝试使用 JSON 转换来访问属性
+				const errorStr = JSON.stringify(error);
+				const errorParsed = JSON.parse(errorStr);
+				const errorObj = errorParsed as UTSJSONObject;
+				const code = errorObj["code"] as number | null;
+				if (code === 403) {
+					isPermissionError = true;
+				}
+			} catch (e) {
+				// 如果 JSON 转换失败，尝试直接转换为 Response 类型
+				try {
+					const errorResponse = error as Response;
+					if (errorResponse.code === 403) {
+						isPermissionError = true;
+					}
+				} catch (e2) {
+					// 如果还是失败，使用默认值
+					console.error("无法解析错误代码:", e2);
+				}
+			}
+			// #endif
+			
+			// #ifndef APP-ANDROID
+			if (error != null) {
+				const errorResponse = error as Response;
+				if (errorResponse.code === 403) {
+					isPermissionError = true;
+				}
+			}
+			// #endif
+			
+			if (isPermissionError) {
+				// 权限未生效，显示审核中提示
+				pendingApproval.value = true;
+				students.value = [];
+			} else {
+				// 其他错误，清空列表但不显示审核中提示
+				students.value = [];
+				pendingApproval.value = false;
+			}
 		}
 
 	} catch (error) {
@@ -408,7 +826,7 @@ function graduateStudent(studentId: number) {
 					ui.showToast({ message: '学员毕业成功' });
 					loadData();
 					// 如果当前弹窗显示的是被毕业的学员，关闭弹窗
-					if (selectedStudent.value != null && selectedStudent.value.id === studentId) {
+					if (getSelectedStudentId() === studentId) {
 						closeDetailModal();
 					}
 				}).catch((error) => {
@@ -430,7 +848,7 @@ function approveBinding(studentId: number) {
 					ui.showToast({ message: '通过申请成功' });
 					loadData();
 					// 如果当前弹窗显示的是被审核的学员，关闭弹窗
-					if (selectedStudent.value != null && selectedStudent.value.id === studentId) {
+					if (getSelectedStudentId() === studentId) {
 						closeDetailModal();
 					}
 				}).catch((error) => {
@@ -452,7 +870,7 @@ function approveStudent(studentId: number) {
 					ui.showToast({ message: '认可学员成功' });
 					loadData();
 					// 如果当前弹窗显示的是被认可的学员，关闭弹窗
-					if (selectedStudent.value != null && selectedStudent.value.id === studentId) {
+					if (getSelectedStudentId() === studentId) {
 						closeDetailModal();
 					}
 				}).catch((error) => {
@@ -474,7 +892,7 @@ function unbindStudent(studentId: number) {
 					ui.showToast({ message: '解绑成功' });
 					loadData();
 					// 如果当前弹窗显示的是被解绑的学员，关闭弹窗
-					if (selectedStudent.value != null && selectedStudent.value.id === studentId) {
+					if (getSelectedStudentId() === studentId) {
 						closeDetailModal();
 					}
 				}).catch((error) => {
@@ -487,30 +905,30 @@ function unbindStudent(studentId: number) {
 }
 
 function handleUnbindStudent() {
-	const student = selectedStudent.value;
-	if (student != null) {
-		unbindStudent(student.id);
+	const studentId = getSelectedStudentId();
+	if (studentId > 0) {
+		unbindStudent(studentId);
 	}
 }
 
 function handleApproveBinding() {
-	const student = selectedStudent.value;
-	if (student != null) {
-		approveBinding(student.id);
+	const studentId = getSelectedStudentId();
+	if (studentId > 0) {
+		approveBinding(studentId);
 	}
 }
 
 function handleApproveStudent() {
-	const student = selectedStudent.value;
-	if (student != null) {
-		approveStudent(student.id);
+	const studentId = getSelectedStudentId();
+	if (studentId > 0) {
+		approveStudent(studentId);
 	}
 }
 
 function handleGraduateStudent() {
-	const student = selectedStudent.value;
-	if (student != null) {
-		graduateStudent(student.id);
+	const studentId = getSelectedStudentId();
+	if (studentId > 0) {
+		graduateStudent(studentId);
 	}
 }
 

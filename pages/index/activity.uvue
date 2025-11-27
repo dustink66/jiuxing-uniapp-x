@@ -307,6 +307,10 @@ async function loadData() {
 onMounted(() => {
   loadData();
 });
+
+onShow(() => {
+  loadData();
+});
 </script>
 
 <style lang="scss" scoped>
